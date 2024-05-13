@@ -1,3 +1,3 @@
-module github.com/MLee-GitHub/taskgroup
+module github.com/mlee-msl/taskgroup
 
 go 1.21
