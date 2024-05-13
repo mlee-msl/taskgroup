@@ -29,7 +29,7 @@ type TaskGroup struct {
 type Task struct {
 	fNO         uint32                      // 任务编号
 	f           func() (interface{}, error) // 任务方法
-	mustSuccess bool                        // 任务必须执行成功，否则整个任务组将会立即结束，且失败(返回第一个必须成功任务的失败结果)
+	mustSuccess bool                        // 任务必须执行成功，否则整个任务组将会立即结束，且失败(将会返回第一个必须成功任务的失败结果)
 }
 
 // NewTask 创建一个任务
@@ -73,7 +73,7 @@ func (tg *TaskGroup) AddTask(tasks ...*Task) *TaskGroup {
 	return tg
 }
 
-// Run 启动并运行任务组中的所有任务(仅会运行当且仅当一次)
+// RunExactlyOnce 启动并运行任务组中的所有任务(仅会运行当且仅当一次)
 func (tg *TaskGroup) RunExactlyOnce() (result map[uint32]*taskResult, err error) {
 	tg.runExactlyOnce.Do(func() {
 		result, err = tg.Run()
