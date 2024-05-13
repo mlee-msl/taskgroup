@@ -6,6 +6,8 @@ import (
 	"math/rand"
 	"testing"
 	"time"
+
+	"github.com/MLee-GitHub/taskgroup"
 )
 
 func init() {
@@ -15,12 +17,12 @@ func init() {
 // 功能测试
 func TestTaskGroup(t *testing.T) {
 	var (
-		tg TaskGroup
+		tg taskgroup.TaskGroup
 
-		tasks = []*Task{
-			NewTask(1, task1, true),
-			NewTask(2, task2, true),
-			NewTask(3, task3, true),
+		tasks = []*taskgroup.Task{
+			taskgroup.NewTask(1, task1, true),
+			taskgroup.NewTask(2, task2, true),
+			taskgroup.NewTask(3, task3, true),
 		}
 	)
 
@@ -33,9 +35,9 @@ func TestTaskGroup(t *testing.T) {
 
 func TestTaskGroupBoundary(t *testing.T) {
 	var (
-		tg TaskGroup
+		tg taskgroup.TaskGroup
 
-		tasks = []*Task{}
+		tasks = []*taskgroup.Task{}
 	)
 
 	taskResult, err := tg.SetWorkerNums(4).AddTask(tasks...).Run()
@@ -47,13 +49,13 @@ func TestTaskGroupBoundary(t *testing.T) {
 
 func TestTaskGroupAbnormal(t *testing.T) {
 	var (
-		tg TaskGroup
+		tg taskgroup.TaskGroup
 
-		tasks = []*Task{
-			NewTask(1, task1, true),
+		tasks = []*taskgroup.Task{
+			taskgroup.NewTask(1, task1, true),
 			nil,
-			NewTask(2, task2, false),
-			NewTask(2, task1, true),
+			taskgroup.NewTask(2, task2, false),
+			taskgroup.NewTask(2, task1, true),
 		}
 	)
 
@@ -133,7 +135,7 @@ func BenchmarkTaskGroupZero(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var tg TaskGroup
+		var tg taskgroup.TaskGroup
 		_, _ = tg.SetWorkerNums(2).AddTask(tasks...).Run()
 	}
 }
@@ -143,7 +145,7 @@ func BenchmarkTaskGroupLow(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var tg TaskGroup
+		var tg taskgroup.TaskGroup
 		_, _ = tg.SetWorkerNums(2).AddTask(tasks...).Run()
 	}
 }
@@ -153,7 +155,7 @@ func BenchmarkTaskGroupNormal(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var tg TaskGroup
+		var tg taskgroup.TaskGroup
 		_, _ = tg.SetWorkerNums(2).AddTask(tasks...).Run()
 	}
 }
@@ -163,7 +165,7 @@ func BenchmarkTaskGroupMedium(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var tg TaskGroup
+		var tg taskgroup.TaskGroup
 		_, _ = tg.SetWorkerNums(2).AddTask(tasks...).Run()
 	}
 }
@@ -173,7 +175,7 @@ func BenchmarkTaskGroupHigh(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var tg TaskGroup
+		var tg taskgroup.TaskGroup
 		_, _ = tg.SetWorkerNums(2).AddTask(tasks...).Run()
 	}
 }
@@ -183,20 +185,20 @@ func BenchmarkTaskGroupExtremelyHigh(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var tg TaskGroup
+		var tg taskgroup.TaskGroup
 		_, _ = tg.SetWorkerNums(2).AddTask(tasks...).Run()
 	}
 }
 
 var taskSet = []func() (interface{}, error){task1, task2, task3, task4}
 
-func buildTestCaseData(taskNums uint32) []*Task {
+func buildTestCaseData(taskNums uint32) []*taskgroup.Task {
 	if taskNums == 0 {
 		return nil
 	}
-	tasks := make([]*Task, 0, taskNums)
+	tasks := make([]*taskgroup.Task, 0, taskNums)
 	for i := 1; i <= int(taskNums); i++ {
-		tasks = append(tasks, NewTask(uint32(getRandomNum(1e10)), taskSet[getRandomNum(len(taskSet))], true))
+		tasks = append(tasks, taskgroup.NewTask(uint32(getRandomNum(1e10)), taskSet[getRandomNum(len(taskSet))], true))
 	}
 	return tasks
 }

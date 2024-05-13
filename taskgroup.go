@@ -1,3 +1,11 @@
+// Package taskgroup Fan-Out/Fan-In 模式(扇出/扇入模式)实现了多任务并发执行，且聚合收集最终所有任务的执行结果与执行状态
+// 实现了并发编程中的扇出/扇入模式(Fan-Out/Fan-In)
+// TODO:
+// 1. 所有操作是否需要考虑并发安全, 比如`TaskGroup.fNOs`, `TaskGroup.tasks`
+// 2. 是否需要有`NewTaskGroup()`方法，这样可以在这个方法中做一次一次性操作，比如初始化`fNOs`
+// 3. 考虑下关键的结构使用指针还是非指针结构(在结构体对象的大小和结构体对象的总体数量上做下权衡，如果产生结构体对象会较多，使用指针堆对象可能会带来`GC`压力，如果结构体对象本身复杂，申请栈对象可能带来较大的额外内存复制的开销)
+// 4. 在本项目上，任务执行前会有一个任务添加的动作，考虑是否可以在任务添加的阶段，即当即运行任务(参考：golang.org/x/sync/errgroup，即为此种方式)
+// 5. 项目`golang.org/x/sync/errgroup`中通过`channel`来控制的并发所需最大`goroutine`的数量
 package taskgroup
 
 import (
@@ -6,11 +14,6 @@ import (
 	"runtime"
 	"sync"
 )
-
-// Fan-Out/Fan-In 模式(扇出/扇入模式)
-// TODO:
-// 1. 所有操作是否需要考虑并发安全, 比如`TaskGroup.fNOs`, `TaskGroup.tasks`
-// 2. 是否需要有`NewTaskGroup()`方法，这样可以在这个方法中做一次一次性操作，比如初始化`fNOs`
 
 // TaskGroup 表示可将多个任务进行安全并发执行的一个对象
 type TaskGroup struct {
