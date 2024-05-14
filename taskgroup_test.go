@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MLee-GitHub/taskgroup"
+	"github.com/mlee-msl/taskgroup"
 )
 
 func init() {
@@ -201,4 +201,26 @@ func buildTestCaseData(taskNums uint32) []*taskgroup.Task {
 		tasks = append(tasks, taskgroup.NewTask(uint32(getRandomNum(1e10)), taskSet[getRandomNum(len(taskSet))], true))
 	}
 	return tasks
+}
+
+// Typical 展示了典型的使用案例，包括，多任务创建、任务执行、结果收集，错误处理等
+func ExampleTaskGroup_typical() {
+	var (
+		tg taskgroup.TaskGroup
+
+		tasks = []*taskgroup.Task{
+			taskgroup.NewTask(1, task1, true),
+			taskgroup.NewTask(2, task2, false),
+			taskgroup.NewTask(3, task3, true),
+		}
+	)
+
+	taskResults, err := tg.SetWorkerNums(6).AddTask(tasks...).Run()
+	if err != nil {
+		fmt.Printf("err: %+v", err)
+		return
+	}
+	for fno, result := range taskResults {
+		fmt.Printf("FNO: %d, RESULT: %v , STATUS: %v\n", fno, result.Result(), result.Error())
+	}
 }
