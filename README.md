@@ -21,7 +21,7 @@
   > > 考虑给[errgroup](https://cs.opensource.google/go/x/sync)提PR
 - **errgroup**可支持带有[取消Context](https://pkg.go.dev/context#WithCancelCause)的模式，但实际上，该种模式下仍需要所有执行任务的`goroutine`执行完毕（每一个任务都会有新的`goroutine`）
 
-# Ideas & TODO
+# IDEAs & TODOs
 
 1. 考虑所有操作支持并发安全, 比如，`TaskGroup.fNOs`, `TaskGroup.tasks`
 2. 增加`NewTaskGroup()`方法，可在这个方法中做一些一次性操作，比如初始化`fNOs`、`tasks`字段等

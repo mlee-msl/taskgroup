@@ -29,7 +29,8 @@ type Task struct {
 	mustSuccess bool                        // 任务必须执行成功，否则整个任务组将会立即结束，且失败(将会返回第一个必须成功任务的失败结果)
 }
 
-// NewTask 创建一个任务
+// NewTask 创建一个任务，`fNO`用以表示任务`f`的唯一标识, `mustSuccess`则表示该任务`f`是否为必须成功，当`true`时,
+// 且任务`f`执行失败，表示整个任务组将执行失败
 func NewTask(fNO uint32 /* 任务唯一标识 */, f func() (interface{}, error) /* 任务执行方法 */, mustSuccess bool /* 标识任务是否必须执行成功 */) *Task {
 	return &Task{fNO, f, mustSuccess}
 }
@@ -75,7 +76,7 @@ func (tg *TaskGroup) AddTask(tasks ...*Task) *TaskGroup {
 }
 
 // RunExactlyOnce 启动并运行任务组中的所有任务(仅会运行当且仅当一次)
-func (tg *TaskGroup) RunExactlyOnce() (result map[uint32]*taskResult, err error) {
+func (tg *TaskGroup) RunExactlyOnce() (result map[uint32]*TaskResult, err error) {
 	tg.runExactlyOnce.Do(func() {
 		result, err = tg.Run()
 	})
@@ -83,7 +84,7 @@ func (tg *TaskGroup) RunExactlyOnce() (result map[uint32]*taskResult, err error)
 }
 
 // Run 启动并运行任务组中的所有任务
-func (tg *TaskGroup) Run() (map[uint32]*taskResult, error) {
+func (tg *TaskGroup) Run() (map[uint32]*TaskResult, error) {
 	taskNums := len(tg.tasks)
 	if taskNums == 0 {
 		return nil, nil
@@ -94,7 +95,7 @@ func (tg *TaskGroup) Run() (map[uint32]*taskResult, error) {
 
 	var (
 		tasks   = make(chan *Task, taskNums)
-		results = make(chan *taskResult, taskNums)
+		results = make(chan *TaskResult, taskNums)
 
 		wg   sync.WaitGroup
 		once sync.Once
@@ -119,7 +120,7 @@ func (tg *TaskGroup) Run() (map[uint32]*taskResult, error) {
 		}()
 	}
 
-	// fmt.Printf("goroutine nums:%d\n", runtime.NumGoroutine())
+	// fmt.Printf("running goroutine nums:%d\n", runtime.NumGoroutine())
 
 	// 发送任务到所有的`workers`中
 	for i := 0; i < taskNums; i++ {
@@ -134,7 +135,7 @@ func (tg *TaskGroup) Run() (map[uint32]*taskResult, error) {
 	}()
 
 	// 从所有的`workers`中收集结果
-	taskResults := make(map[uint32]*taskResult, taskNums)
+	taskResults := make(map[uint32]*TaskResult, taskNums)
 	for result := range results {
 		taskResults[result.fNO] = result
 	}
@@ -148,7 +149,7 @@ func (tg *TaskGroup) rearrangeTasks() {
 	})
 }
 
-func (tg *TaskGroup) worker(ctx context.Context, tasks chan *Task, results chan *taskResult) error {
+func (tg *TaskGroup) worker(ctx context.Context, tasks chan *Task, results chan *TaskResult) error {
 	for task := range tasks {
 		select {
 		case <-ctx.Done(): // 接收到`ctx`被取消的信号，即刻停止后续任务的执行
@@ -158,24 +159,25 @@ func (tg *TaskGroup) worker(ctx context.Context, tasks chan *Task, results chan 
 			if task.mustSuccess && err != nil {
 				return err
 			}
-			results <- &taskResult{task.fNO, result, err}
+			results <- &TaskResult{task.fNO, result, err}
 		}
 	}
 	return nil
 }
 
-type taskResult struct {
+// TaskResult 表示任务的执行结果与执行状态
+type TaskResult struct {
 	fNO    uint32
 	result interface{}
 	err    error
 }
 
 // Result 获取任务执行结果
-func (tr *taskResult) Result() interface{} {
+func (tr *TaskResult) Result() interface{} {
 	return tr.result
 }
 
 // Error 获取任务执行状态
-func (tr *taskResult) Error() error {
+func (tr *TaskResult) Error() error {
 	return tr.err
 }
