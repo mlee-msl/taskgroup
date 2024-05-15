@@ -191,6 +191,13 @@ func adjustWorkerNums(workerNums, taskNums uint32) uint32 {
 	if workerNums > taskNums {
 		workerNums = taskNums
 	}
+	// `min`内建函数在【Go 1.21】引入
+	min := func(a, b uint32) uint32 {
+		if a <= b {
+			return a
+		}
+		return b
+	}
 	if workerNums == 0 {
 		// 当协程数超过逻辑`cpu`数量过大时，带来的上下文切换（一般是用户态轻量协程调度，但当出现内核系统级线程调度，将带来更大的成本开销）或协程的创建、销毁成本将增大
 		// 因此，当任务组中多个任务共享在一个协程上执行时，就无需过多的协程量了

@@ -1,6 +1,6 @@
 # taskgroup
 
-*golang*并发执行多任务，并聚合多任务结果。
+*golang*并发执行多任务，并聚合多任务执行结果与执行状态。
 **[`使用文档`](https://pkg.go.dev/github.com/mlee-msl/taskgroup "欢迎使用，任何意见或建议可联系`2210508401@qq.com`")**
 
 > **使用:** go get github.com/mlee-msl/taskgroup

@@ -33,6 +33,24 @@ func TestTaskGroup(t *testing.T) {
 	}
 }
 
+func TestTaskGroupCtx(t *testing.T) {
+	var (
+		tg taskgroup.TaskGroup
+
+		tasks = []*taskgroup.Task{
+			taskgroup.NewTask(1, task1, false),
+			taskgroup.NewTask(2, task2, true),
+			taskgroup.NewTask(3, task3, false),
+		}
+	)
+
+	taskResult, err := tg.AddTask(tasks...).Run()
+	fmt.Printf("**************TaskGroup************\n%+v, %+v\n", taskResult, err)
+	for fno, result := range taskResult {
+		fmt.Printf("FNO: %d, RESULT: %v , STATUS: %v\n", fno, result.Result(), result.Error())
+	}
+}
+
 func TestTaskGroupBoundary(t *testing.T) {
 	var (
 		tg *taskgroup.TaskGroup
