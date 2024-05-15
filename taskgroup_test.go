@@ -26,7 +26,7 @@ func TestTaskGroup(t *testing.T) {
 		}
 	)
 
-	taskResult, err := tg.SetWorkerNums(4).AddTask(tasks...).Run()
+	taskResult, err := tg.AddTask(tasks...).Run()
 	fmt.Printf("**************TaskGroup************\n%+v, %+v\n", taskResult, err)
 	for fno, result := range taskResult {
 		fmt.Printf("FNO: %d, RESULT: %v , STATUS: %v\n", fno, result.Result(), result.Error())
@@ -35,12 +35,12 @@ func TestTaskGroup(t *testing.T) {
 
 func TestTaskGroupBoundary(t *testing.T) {
 	var (
-		tg taskgroup.TaskGroup
+		tg *taskgroup.TaskGroup
 
 		tasks = []*taskgroup.Task{}
 	)
-
-	taskResult, err := tg.SetWorkerNums(4).AddTask(tasks...).Run()
+	tg = taskgroup.NewTaskGroup(taskgroup.WithWorkerNums(4))
+	taskResult, err := tg.AddTask(tasks...).Run()
 	fmt.Printf("**************TaskGroup************\n%+v, %+v\n", taskResult, err)
 	for fno, result := range taskResult {
 		fmt.Printf("FNO: %d, RESULT: %v , STATUS: %v\n", fno, result.Result(), result.Error())
@@ -49,7 +49,7 @@ func TestTaskGroupBoundary(t *testing.T) {
 
 func TestTaskGroupAbnormal(t *testing.T) {
 	var (
-		tg taskgroup.TaskGroup
+		tg *taskgroup.TaskGroup
 
 		tasks = []*taskgroup.Task{
 			taskgroup.NewTask(1, task1, true),
@@ -58,12 +58,26 @@ func TestTaskGroupAbnormal(t *testing.T) {
 			taskgroup.NewTask(2, task1, true),
 		}
 	)
-
-	taskResult, err := tg.SetWorkerNums(4).AddTask(tasks...).Run()
+	tg = taskgroup.NewTaskGroup()
+	taskResult, err := tg.AddTask(tasks...).Run()
 	fmt.Printf("**************TaskGroup************\n%+v, %+v\n", taskResult, err)
 	for fno, result := range taskResult {
 		fmt.Printf("FNO: %d, RESULT: %v , STATUS: %v\n", fno, result.Result(), result.Error())
 	}
+}
+
+func TestTaskGroupError(t *testing.T) {
+	var (
+		tg *taskgroup.TaskGroup
+
+		tasks = []*taskgroup.Task{
+			taskgroup.NewTask(1, task1, true),
+			nil,
+			taskgroup.NewTask(2, task2, false),
+			taskgroup.NewTask(2, task1, true),
+		}
+	)
+	_, _ = tg.AddTask(tasks...).Run()
 }
 
 func getRandomNum(mod int) int {
@@ -136,7 +150,7 @@ func BenchmarkTaskGroupZero(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var tg taskgroup.TaskGroup
-		_, _ = tg.SetWorkerNums(2).AddTask(tasks...).Run()
+		_, _ = tg.AddTask(tasks...).Run()
 	}
 }
 
@@ -146,7 +160,7 @@ func BenchmarkTaskGroupLow(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var tg taskgroup.TaskGroup
-		_, _ = tg.SetWorkerNums(2).AddTask(tasks...).Run()
+		_, _ = tg.AddTask(tasks...).Run()
 	}
 }
 
@@ -156,7 +170,7 @@ func BenchmarkTaskGroupNormal(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var tg taskgroup.TaskGroup
-		_, _ = tg.SetWorkerNums(2).AddTask(tasks...).Run()
+		_, _ = tg.AddTask(tasks...).Run()
 	}
 }
 
@@ -166,7 +180,7 @@ func BenchmarkTaskGroupMedium(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var tg taskgroup.TaskGroup
-		_, _ = tg.SetWorkerNums(2).AddTask(tasks...).Run()
+		_, _ = tg.AddTask(tasks...).Run()
 	}
 }
 
@@ -176,7 +190,7 @@ func BenchmarkTaskGroupHigh(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var tg taskgroup.TaskGroup
-		_, _ = tg.SetWorkerNums(2).AddTask(tasks...).Run()
+		_, _ = tg.AddTask(tasks...).Run()
 	}
 }
 
@@ -186,7 +200,7 @@ func BenchmarkTaskGroupExtremelyHigh(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var tg taskgroup.TaskGroup
-		_, _ = tg.SetWorkerNums(2).AddTask(tasks...).Run()
+		_, _ = tg.AddTask(tasks...).Run()
 	}
 }
 
@@ -203,10 +217,10 @@ func buildTestCaseData(taskNums uint32) []*taskgroup.Task {
 	return tasks
 }
 
-// Typical 展示了典型的使用案例，包括，多任务创建、任务执行、结果收集，错误处理等
-func ExampleTaskGroup_typical() {
+// Default 展示了默认配置的使用案例，包括，多任务创建、任务执行、结果收集，错误处理等
+func ExampleTaskGroup_default() {
 	var (
-		tg taskgroup.TaskGroup
+		tg *taskgroup.TaskGroup
 
 		tasks = []*taskgroup.Task{
 			taskgroup.NewTask(1, task1, true),
@@ -214,8 +228,77 @@ func ExampleTaskGroup_typical() {
 			taskgroup.NewTask(3, task3, true),
 		}
 	)
+	tg = taskgroup.NewTaskGroup()
+	taskResults, err := tg.AddTask(tasks...).Run()
+	if err != nil {
+		fmt.Printf("err: %+v", err)
+		return
+	}
+	for fno, result := range taskResults {
+		fmt.Printf("FNO: %d, RESULT: %v , STATUS: %v\n", fno, result.Result(), result.Error())
+	}
+}
 
-	taskResults, err := tg.SetWorkerNums(6).AddTask(tasks...).Run()
+// JustErrors 展示了错误（非最佳）的使用案例，包括，多任务创建、任务执行、结果收集，错误处理等
+func ExampleTaskGroup_justErrors() {
+	var (
+		tg *taskgroup.TaskGroup
+
+		tasks = []*taskgroup.Task{
+			taskgroup.NewTask(1, task1, true),
+			taskgroup.NewTask(2, task2, false),
+			taskgroup.NewTask(3, task3, true),
+			nil,
+			nil,
+		}
+	)
+	tg = taskgroup.NewTaskGroup(nil)
+	taskResults, err := tg.AddTask(tasks...).Run()
+	if err != nil {
+		fmt.Printf("err: %+v", err)
+		return
+	}
+	for fno, result := range taskResults {
+		fmt.Printf("FNO: %d, RESULT: %v , STATUS: %v\n", fno, result.Result(), result.Error())
+	}
+}
+
+// JustAbnormal 展示了异常的使用案例，包括，多任务创建、任务执行、结果收集，错误处理等
+func ExampleTaskGroup_justAbnormal() {
+	var (
+		tg *taskgroup.TaskGroup
+
+		tasks = []*taskgroup.Task{
+			taskgroup.NewTask(1, task1, true),
+			taskgroup.NewTask(2, task2, false),
+			taskgroup.NewTask(3, task3, true),
+			nil,
+			nil,
+		}
+	)
+	taskResults, err := tg.AddTask(tasks...).Run()
+	if err != nil {
+		fmt.Printf("err: %+v", err)
+		return
+	}
+	for fno, result := range taskResults {
+		fmt.Printf("FNO: %d, RESULT: %v , STATUS: %v\n", fno, result.Result(), result.Error())
+	}
+}
+
+// Typical 展示了典型的使用案例，包括，多任务创建、任务执行、结果收集，错误处理等
+func ExampleTaskGroup_typical() {
+	var (
+		tg *taskgroup.TaskGroup
+
+		tasks = []*taskgroup.Task{
+			taskgroup.NewTask(1, task1, true),
+			taskgroup.NewTask(2, task2, false),
+			taskgroup.NewTask(3, task3, false),
+		}
+	)
+	tg = taskgroup.NewTaskGroup(taskgroup.WithWorkerNums(6))
+	taskResults, err := tg.AddTask(tasks...).Run()
 	if err != nil {
 		fmt.Printf("err: %+v", err)
 		return
