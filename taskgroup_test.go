@@ -14,21 +14,46 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
+// ---------------------------------------------------
+// ----------------------功能测试----------------------
+// ---------------------------------------------------
+func TestTaskGroupEarlyReturn(t *testing.T) {
+	tg := taskgroup.NewTaskGroup(taskgroup.WithWorkerNums(20))
+	tasks := []*taskgroup.Task{
+		taskgroup.NewTask(0, task1ReturnFailWrapper(0), true),
+		taskgroup.NewTask(1, task1ReturnFailWrapper(1), false),
+		taskgroup.NewTask(2, task2ReturnSuccessWrapper(2), true),
+		taskgroup.NewTask(3, task3ReturnFailWrapper(3), true),
+		taskgroup.NewTask(4, task3ReturnFailWrapper(4), false),
+		taskgroup.NewTask(5, task1ReturnFailWrapper(5), true),
+		taskgroup.NewTask(6, task3ReturnFailWrapper(6), true),
+		taskgroup.NewTask(7, task2ReturnSuccessWrapper(7), true),
+	}
+	taskResults, err := tg.AddTask(tasks...).Run()
+	if err != nil {
+		fmt.Printf("taskResults:%+v, err: %+v\n", taskResults, err)
+		return
+	}
+	for fno, result := range taskResults {
+		fmt.Printf("FNO: %d, RESULT: %v , STATUS: %v\n", fno, result.Result(), result.Error())
+	}
+}
+
 // 功能测试
 func TestTaskGroup(t *testing.T) {
 	var (
 		tg taskgroup.TaskGroup
 
 		tasks = []*taskgroup.Task{
-			taskgroup.NewTask(1, task1, true),
-			taskgroup.NewTask(2, task2, true),
-			taskgroup.NewTask(3, task3, true),
+			taskgroup.NewTask(1, task1ReturnFailWrapper(1), true),
+			taskgroup.NewTask(2, task2ReturnSuccessWrapper(2), true),
+			taskgroup.NewTask(3, task3ReturnFailWrapper(3), true),
 		}
 	)
 
-	taskResult, err := tg.AddTask(tasks...).Run()
-	fmt.Printf("**************TaskGroup************\n%+v, %+v\n", taskResult, err)
-	for fno, result := range taskResult {
+	taskResults, err := tg.AddTask(tasks...).Run()
+	fmt.Printf("**************TaskGroup************\n%+v, %+v\n", taskResults, err)
+	for fno, result := range taskResults {
 		fmt.Printf("FNO: %d, RESULT: %v , STATUS: %v\n", fno, result.Result(), result.Error())
 	}
 }
@@ -38,15 +63,15 @@ func TestTaskGroupCtx(t *testing.T) {
 		tg taskgroup.TaskGroup
 
 		tasks = []*taskgroup.Task{
-			taskgroup.NewTask(1, task1, false),
-			taskgroup.NewTask(2, task2, true),
-			taskgroup.NewTask(3, task3, false),
+			taskgroup.NewTask(1, task1ReturnFailWrapper(1), false),
+			taskgroup.NewTask(2, task2ReturnSuccessWrapper(2), true),
+			taskgroup.NewTask(3, task3ReturnFailWrapper(3), false),
 		}
 	)
 
-	taskResult, err := tg.AddTask(tasks...).Run()
-	fmt.Printf("**************TaskGroup************\n%+v, %+v\n", taskResult, err)
-	for fno, result := range taskResult {
+	taskResults, err := tg.AddTask(tasks...).Run()
+	fmt.Printf("**************TaskGroup************\n%+v, %+v\n", taskResults, err)
+	for fno, result := range taskResults {
 		fmt.Printf("FNO: %d, RESULT: %v , STATUS: %v\n", fno, result.Result(), result.Error())
 	}
 }
@@ -58,9 +83,9 @@ func TestTaskGroupBoundary(t *testing.T) {
 		tasks = []*taskgroup.Task{}
 	)
 	tg = taskgroup.NewTaskGroup(taskgroup.WithWorkerNums(4))
-	taskResult, err := tg.AddTask(tasks...).Run()
-	fmt.Printf("**************TaskGroup************\n%+v, %+v\n", taskResult, err)
-	for fno, result := range taskResult {
+	taskResults, err := tg.AddTask(tasks...).Run()
+	fmt.Printf("**************TaskGroup************\n%+v, %+v\n", taskResults, err)
+	for fno, result := range taskResults {
 		fmt.Printf("FNO: %d, RESULT: %v , STATUS: %v\n", fno, result.Result(), result.Error())
 	}
 }
@@ -70,16 +95,16 @@ func TestTaskGroupAbnormal(t *testing.T) {
 		tg *taskgroup.TaskGroup
 
 		tasks = []*taskgroup.Task{
-			taskgroup.NewTask(1, task1, true),
+			taskgroup.NewTask(1, task1ReturnFailWrapper(1), true),
 			nil,
-			taskgroup.NewTask(2, task2, false),
-			taskgroup.NewTask(2, task1, true),
+			taskgroup.NewTask(2, task2ReturnSuccessWrapper(2), false),
+			taskgroup.NewTask(2, task1ReturnFailWrapper(2), true),
 		}
 	)
 	tg = taskgroup.NewTaskGroup()
-	taskResult, err := tg.AddTask(tasks...).Run()
-	fmt.Printf("**************TaskGroup************\n%+v, %+v\n", taskResult, err)
-	for fno, result := range taskResult {
+	taskResults, err := tg.AddTask(tasks...).Run()
+	fmt.Printf("**************TaskGroup************\n%+v, %+v\n", taskResults, err)
+	for fno, result := range taskResults {
 		fmt.Printf("FNO: %d, RESULT: %v , STATUS: %v\n", fno, result.Result(), result.Error())
 	}
 }
@@ -89,10 +114,10 @@ func TestTaskGroupError(t *testing.T) {
 		tg *taskgroup.TaskGroup
 
 		tasks = []*taskgroup.Task{
-			taskgroup.NewTask(1, task1, true),
+			taskgroup.NewTask(1, task1ReturnFailWrapper(1), true),
 			nil,
-			taskgroup.NewTask(2, task2, false),
-			taskgroup.NewTask(2, task1, true),
+			taskgroup.NewTask(2, task2ReturnSuccessWrapper(2), false),
+			taskgroup.NewTask(2, task1ReturnFailWrapper(2), true),
 		}
 	)
 	_, _ = tg.AddTask(tasks...).Run()
@@ -102,11 +127,18 @@ func getRandomNum(mod int) int {
 	return rand.Int() % mod
 }
 
-func task1() (interface{}, error) {
-	const taskFlag = "running TASK1"
-	fmt.Println(taskFlag)
+// task1ReturnFail 模拟的并发任务1,且返回失败
+func task1ReturnFail(fno uint32) (interface{}, error) {
+	const taskFlag = "is running TASK1"
+	fmt.Printf("fno: %d, %s\n", fno, taskFlag)
 	simulateMemIO(taskFlag)
-	return getRandomNum(2e3), fmt.Errorf("%s err", taskFlag)
+	return getRandomNum(2e3), fmt.Errorf("fno: %d, TASK1 err", fno)
+}
+
+func task1ReturnFailWrapper(fno uint32) taskgroup.TaskFunc {
+	return func() (interface{}, error) {
+		return task1ReturnFail(fno)
+	}
 }
 
 type task2Struct struct {
@@ -114,9 +146,10 @@ type task2Struct struct {
 	b string
 }
 
-func task2() (interface{}, error) {
-	const taskFlag = "running TASK2"
-	fmt.Println(taskFlag)
+// task2ReturnSuccess 模拟的并发任务2，且返回成功
+func task2ReturnSuccess(fno uint32) (interface{}, error) {
+	const taskFlag = "is running TASK2"
+	fmt.Printf("fno: %d, %s\n", fno, taskFlag)
 	simulateMemIO(taskFlag)
 	return task2Struct{
 		a: getRandomNum(1e1),
@@ -124,11 +157,24 @@ func task2() (interface{}, error) {
 	}, nil
 }
 
-func task3() (interface{}, error) {
-	const taskFlag = "running TASK3"
-	fmt.Println(taskFlag)
+func task2ReturnSuccessWrapper(fno uint32) taskgroup.TaskFunc {
+	return func() (interface{}, error) {
+		return task2ReturnSuccess(fno)
+	}
+}
+
+// task3ReturnFail 模拟的并发任务3，且返回失败
+func task3ReturnFail(fno uint32) (interface{}, error) {
+	const taskFlag = "is running TASK3"
+	fmt.Printf("fno: %d, %s\n", fno, taskFlag)
 	simulateMemIO(taskFlag)
-	return fmt.Sprintf("%s: The data is %d", taskFlag, getRandomNum(12)), fmt.Errorf("%s err", taskFlag)
+	return fmt.Sprintf("TASK3: The data is %d", getRandomNum(12)), fmt.Errorf("fno: %d, TASK3 err", fno)
+}
+
+func task3ReturnFailWrapper(fno uint32) taskgroup.TaskFunc {
+	return func() (interface{}, error) {
+		return task3ReturnFail(fno)
+	}
 }
 
 type task4Struct struct {
@@ -140,9 +186,10 @@ type task4Struct struct {
 	field5 *string
 }
 
-func task4() (interface{}, error) {
-	const taskFlag = "TASK4"
-	// fmt.Println(taskFlag)
+// task4ReturnSuccess 模拟的并发任务4,且返回成功
+func task4ReturnSuccess(fno uint32) (interface{}, error) {
+	const taskFlag = "is running TASK4"
+	fmt.Printf("fno: %d, %s\n", fno, taskFlag)
 	simulateMemIO(taskFlag)
 	var field5 = "mleeeeeeeeeeeeeee"
 	return task4Struct{
@@ -150,178 +197,19 @@ func task4() (interface{}, error) {
 		field1: 1024,
 		field2: "12",
 		field3: []task2Struct{{12, "mlee1"}, {122, "mlee2"}, {1222, "mlee3"}},
-		field4: map[string]*task2Struct{"a1": {10, "@@"}, "a2": {111, "##"}},
+		field4: map[string]*task2Struct{"a1": {10, "@@"}, "a2": {111, "##"}, "a3": {111, "$$"}},
 		field5: &field5,
-	}, fmt.Errorf("%s err", taskFlag)
+	}, nil
+}
+
+func task4ReturnSuccessWrapper(fno uint32) taskgroup.TaskFunc {
+	return func() (interface{}, error) {
+		return task4ReturnSuccess(fno)
+	}
 }
 
 func simulateMemIO(s string) {
 	var buf bytes.Buffer
 	_, _ = buf.WriteString(s)
 	_ = buf.String()
-}
-
-// -----------性能测试-----------
-func BenchmarkTaskGroupZero(b *testing.B) {
-	tasks := buildTestCaseData(0)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		var tg taskgroup.TaskGroup
-		_, _ = tg.AddTask(tasks...).Run()
-	}
-}
-
-func BenchmarkTaskGroupLow(b *testing.B) {
-	tasks := buildTestCaseData(3)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		var tg taskgroup.TaskGroup
-		_, _ = tg.AddTask(tasks...).Run()
-	}
-}
-
-func BenchmarkTaskGroupNormal(b *testing.B) {
-	tasks := buildTestCaseData(8)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		var tg taskgroup.TaskGroup
-		_, _ = tg.AddTask(tasks...).Run()
-	}
-}
-
-func BenchmarkTaskGroupMedium(b *testing.B) {
-	tasks := buildTestCaseData(15)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		var tg taskgroup.TaskGroup
-		_, _ = tg.AddTask(tasks...).Run()
-	}
-}
-
-func BenchmarkTaskGroupHigh(b *testing.B) {
-	tasks := buildTestCaseData(40)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		var tg taskgroup.TaskGroup
-		_, _ = tg.AddTask(tasks...).Run()
-	}
-}
-
-func BenchmarkTaskGroupExtremelyHigh(b *testing.B) {
-	tasks := buildTestCaseData(200)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		var tg taskgroup.TaskGroup
-		_, _ = tg.AddTask(tasks...).Run()
-	}
-}
-
-var taskSet = []func() (interface{}, error){task1, task2, task3, task4}
-
-func buildTestCaseData(taskNums uint32) []*taskgroup.Task {
-	if taskNums == 0 {
-		return nil
-	}
-	tasks := make([]*taskgroup.Task, 0, taskNums)
-	for i := 1; i <= int(taskNums); i++ {
-		tasks = append(tasks, taskgroup.NewTask(uint32(getRandomNum(1e10)), taskSet[getRandomNum(len(taskSet))], true))
-	}
-	return tasks
-}
-
-// Default 展示了默认配置的使用案例，包括，多任务创建、任务执行、结果收集，错误处理等
-func ExampleTaskGroup_default() {
-	var (
-		tg *taskgroup.TaskGroup
-
-		tasks = []*taskgroup.Task{
-			taskgroup.NewTask(1, task1, true),
-			taskgroup.NewTask(2, task2, false),
-			taskgroup.NewTask(3, task3, true),
-		}
-	)
-	tg = taskgroup.NewTaskGroup()
-	taskResults, err := tg.AddTask(tasks...).Run()
-	if err != nil {
-		fmt.Printf("err: %+v", err)
-		return
-	}
-	for fno, result := range taskResults {
-		fmt.Printf("FNO: %d, RESULT: %v , STATUS: %v\n", fno, result.Result(), result.Error())
-	}
-}
-
-// JustErrors 展示了错误（非最佳）的使用案例，包括，多任务创建、任务执行、结果收集，错误处理等
-func ExampleTaskGroup_justErrors() {
-	var (
-		tg *taskgroup.TaskGroup
-
-		tasks = []*taskgroup.Task{
-			taskgroup.NewTask(1, task1, true),
-			taskgroup.NewTask(2, task2, false),
-			taskgroup.NewTask(3, task3, true),
-			nil,
-			nil,
-		}
-	)
-	tg = taskgroup.NewTaskGroup(nil)
-	taskResults, err := tg.AddTask(tasks...).Run()
-	if err != nil {
-		fmt.Printf("err: %+v", err)
-		return
-	}
-	for fno, result := range taskResults {
-		fmt.Printf("FNO: %d, RESULT: %v , STATUS: %v\n", fno, result.Result(), result.Error())
-	}
-}
-
-// JustAbnormal 展示了异常的使用案例，包括，多任务创建、任务执行、结果收集，错误处理等
-func ExampleTaskGroup_justAbnormal() {
-	var (
-		tg *taskgroup.TaskGroup
-
-		tasks = []*taskgroup.Task{
-			taskgroup.NewTask(1, task1, true),
-			taskgroup.NewTask(2, task2, false),
-			taskgroup.NewTask(3, task3, true),
-			nil,
-			nil,
-		}
-	)
-	taskResults, err := tg.AddTask(tasks...).Run()
-	if err != nil {
-		fmt.Printf("err: %+v", err)
-		return
-	}
-	for fno, result := range taskResults {
-		fmt.Printf("FNO: %d, RESULT: %v , STATUS: %v\n", fno, result.Result(), result.Error())
-	}
-}
-
-// Typical 展示了典型的使用案例，包括，多任务创建、任务执行、结果收集，错误处理等
-func ExampleTaskGroup_typical() {
-	var (
-		tg *taskgroup.TaskGroup
-
-		tasks = []*taskgroup.Task{
-			taskgroup.NewTask(1, task1, true),
-			taskgroup.NewTask(2, task2, false),
-			taskgroup.NewTask(3, task3, false),
-		}
-	)
-	tg = taskgroup.NewTaskGroup(taskgroup.WithWorkerNums(6))
-	taskResults, err := tg.AddTask(tasks...).Run()
-	if err != nil {
-		fmt.Printf("err: %+v", err)
-		return
-	}
-	for fno, result := range taskResults {
-		fmt.Printf("FNO: %d, RESULT: %v , STATUS: %v\n", fno, result.Result(), result.Error())
-	}
 }

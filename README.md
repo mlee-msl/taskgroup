@@ -23,8 +23,6 @@
 
 # IDEAs & TODOs
 
-1. 考虑所有操作支持并发安全, 比如，`TaskGroup.fNOs`, `TaskGroup.tasks`
+1. 将考虑所有操作支持并发安全, 比如，`TaskGroup.fNOs`, `TaskGroup.tasks`
 2. 考虑下关键的结构对象使用指针还是非指针结构(在结构体对象的大小和结构体对象的总体数量上做下权衡，如果产生结构体对象会较多，使用指针堆对象可能会带来`GC`压力，如果结构体对象本身复杂，申请栈对象可能带来较大的额外内存复制的开销)
-3. 补充`benchmark`测试，以及和`errgroup`性能对比
-4. 进行详细的性能分析，`go tool trace; go tool pprof` 完整的分析协程调度细节、cpu、内存使用情况（火焰图）
-5. 补充`Example`，严格遵循 [godoc](https://pkg.go.dev/) 文档&注释规范
+3. 输出详细的性能分析报告，`go tool trace; go tool pprof` 完整的分析协程调度细节、cpu、内存使用情况（火焰图）

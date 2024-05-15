@@ -138,7 +138,7 @@ func (tg *TaskGroup) Run() (map[uint32]*TaskResult, error) {
 		once sync.Once
 	)
 	ctx, cancel := context.WithCancelCause(context.Background())
-	defer cancel(nil) // 遍历`ctx`相关的资源泄露(channel, goroutine等)
+	defer cancel(nil) // 避免`ctx`相关的资源泄露(channel, goroutine等)
 	// 启动`workers`
 	for i := 1; i <= int(tg.workerNums); i++ {
 		wg.Add(1)
@@ -175,6 +175,7 @@ func (tg *TaskGroup) Run() (map[uint32]*TaskResult, error) {
 func (tg *TaskGroup) prepare() {
 	// 优先执行必要成功的任务，当同一个goroutine执行多个任务时，如出现了必要成功任务失败时，可提前结束goroutine，即，无需后续任务执行了
 	tg.rearrangeTasks()
+	// 调整工作组中的协程量
 	WithWorkerNums(adjustWorkerNums(tg.workerNums, uint32(len(tg.tasks))))(tg)
 }
 
@@ -185,7 +186,7 @@ func (tg *TaskGroup) rearrangeTasks() {
 	})
 }
 
-// adjustWorkerNums 调整工作组中协程量
+// adjustWorkerNums 调整工作组中的协程量
 func adjustWorkerNums(workerNums, taskNums uint32) uint32 {
 	// 工作协程数不得多余待执行任务总数，否则，因多余协程不会做任务，反而会由于创建或销毁这些协程而带来额外不必要的性能消耗
 	if workerNums > taskNums {
