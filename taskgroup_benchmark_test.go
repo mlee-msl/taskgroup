@@ -1,9 +1,12 @@
 package taskgroup_test
 
 import (
+	"context"
+	"runtime"
 	"testing"
 
 	"github.com/mlee-msl/taskgroup"
+	"golang.org/x/sync/errgroup"
 )
 
 // ---------------------------------------------------
@@ -49,13 +52,33 @@ func BenchmarkTaskGroupMedium(b *testing.B) {
 	}
 }
 
+// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroupHigh$ -benchtime=10x -count=6 .
+// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroupHigh$ -cpu=1,2 -benchtime=10x -count=6 .
 func BenchmarkTaskGroupHigh(b *testing.B) {
-	tasks := buildTestCaseData(40)
+	const taskNums = uint32(4)
+	tasks := buildTestCaseData(taskNums)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var tg taskgroup.TaskGroup
+		workerNums := uint32(runtime.NumCPU()) // 初步验证，协程数和逻辑`cpu`量一致时，性能表现最佳
+		// workerNums := taskNums
+		// tg := taskgroup.NewTaskGroup(taskgroup.WithWorkerNums(taskNums))
+		tg := taskgroup.NewTaskGroup(taskgroup.WithWorkerNums(workerNums))
 		_, _ = tg.AddTask(tasks...).Run()
+	}
+}
+
+// go test -benchmem -run=^$ -bench ^BenchmarkErrGroupHigh$ -benchtime=10x -count=6 .
+func BenchmarkErrGroupHigh(b *testing.B) {
+	const taskNums = 4
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		errGroup, _ := errgroup.WithContext(context.Background())
+		for i := 1; i <= taskNums; i++ {
+			errGroup.Go(taskSetForErrGroup[getRandomNum(len(taskSetForErrGroup))])
+		}
+		_ = errGroup.Wait()
 	}
 }
 
@@ -69,11 +92,23 @@ func BenchmarkTaskGroupExtremelyHigh(b *testing.B) {
 	}
 }
 
-var taskSet = []func() (interface{}, error){
-	task1ReturnFailWrapper(1),
-	task2ReturnSuccessWrapper(2),
-	task3ReturnFailWrapper(3),
-	task4ReturnSuccessWrapper(4)}
+var (
+	taskSetForTaskGroup = []taskgroup.TaskFunc{
+		task1ReturnFailWrapper(1, false),
+		task2ReturnSuccessWrapper(2, false),
+		task3ReturnFailWrapper(3, false),
+		task4ReturnSuccessWrapper(4, false),
+		task5ReturnFailWrapper(5, false),
+	}
+
+	taskSetForErrGroup = []jobFunc{
+		task1ReturnFailWrapperForErrGroup(1, false),
+		task2ReturnSuccessWrapperForErrGroup(2, false),
+		task3ReturnFailWrapperForErrGroup(3, false),
+		task4ReturnSuccessWrapperForErrGroup(4, false),
+		task5ReturnFailWrapperForErrGroup(5, false),
+	}
+)
 
 func buildTestCaseData(taskNums uint32) []*taskgroup.Task {
 	if taskNums == 0 {
@@ -81,7 +116,11 @@ func buildTestCaseData(taskNums uint32) []*taskgroup.Task {
 	}
 	tasks := make([]*taskgroup.Task, 0, taskNums)
 	for i := 1; i <= int(taskNums); i++ {
-		tasks = append(tasks, taskgroup.NewTask(uint32(getRandomNum(1e10)), taskSet[getRandomNum(len(taskSet))], true))
+		var mustSuccess bool
+		if getRandomNum(100) < 80 { // `80%`的接口要求必须是成功的
+			mustSuccess = true
+		}
+		tasks = append(tasks, taskgroup.NewTask(uint32(getRandomNum(1e10)), taskSetForTaskGroup[getRandomNum(len(taskSetForTaskGroup))], mustSuccess))
 	}
 	return tasks
 }

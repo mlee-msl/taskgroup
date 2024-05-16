@@ -15,9 +15,9 @@ func ExampleTaskGroup_default() {
 		tg *taskgroup.TaskGroup
 
 		tasks = []*taskgroup.Task{
-			taskgroup.NewTask(1, task1ReturnFailWrapper(1), true),
-			taskgroup.NewTask(2, task2ReturnSuccessWrapper(2), false),
-			taskgroup.NewTask(3, task3ReturnFailWrapper(3), true),
+			taskgroup.NewTask(1, task1ReturnFailWrapper(1, true), true),
+			taskgroup.NewTask(2, task2ReturnSuccessWrapper(2, true), false),
+			taskgroup.NewTask(3, task3ReturnFailWrapper(3, true), true),
 		}
 	)
 	tg = taskgroup.NewTaskGroup()
@@ -31,15 +31,15 @@ func ExampleTaskGroup_default() {
 	}
 }
 
-// JustErrors 展示了错误（非最佳）的使用案例，包括，多任务创建、任务执行、结果收集，错误处理等
+// JustErrors 展示了错误的使用案例，包括，多任务创建、任务执行、结果收集，错误处理等
 func ExampleTaskGroup_justErrors() {
 	var (
 		tg *taskgroup.TaskGroup
 
 		tasks = []*taskgroup.Task{
-			taskgroup.NewTask(1, task1ReturnFailWrapper(1), true),
-			taskgroup.NewTask(2, task2ReturnSuccessWrapper(2), false),
-			taskgroup.NewTask(3, task3ReturnFailWrapper(3), true),
+			taskgroup.NewTask(1, task1ReturnFailWrapper(1, true), true),
+			taskgroup.NewTask(2, task2ReturnSuccessWrapper(2, true), false),
+			taskgroup.NewTask(2, task3ReturnFailWrapper(2, true), true),
 			nil,
 			nil,
 		}
@@ -61,9 +61,9 @@ func ExampleTaskGroup_justAbnormal() {
 		tg *taskgroup.TaskGroup
 
 		tasks = []*taskgroup.Task{
-			taskgroup.NewTask(1, task1ReturnFailWrapper(1), true),
-			taskgroup.NewTask(2, task2ReturnSuccessWrapper(2), false),
-			taskgroup.NewTask(3, task3ReturnFailWrapper(3), true),
+			taskgroup.NewTask(1, task1ReturnFailWrapper(1, true), true),
+			taskgroup.NewTask(2, task2ReturnSuccessWrapper(2, true), false),
+			taskgroup.NewTask(3, task3ReturnFailWrapper(3, true), true),
 			nil,
 			nil,
 		}
@@ -84,9 +84,9 @@ func ExampleTaskGroup_typical() {
 		tg *taskgroup.TaskGroup
 
 		tasks = []*taskgroup.Task{
-			taskgroup.NewTask(1, task1ReturnFailWrapper(1), true),
-			taskgroup.NewTask(2, task2ReturnSuccessWrapper(2), false),
-			taskgroup.NewTask(3, task3ReturnFailWrapper(3), false),
+			taskgroup.NewTask(1, task1ReturnFailWrapper(1, true), true),
+			taskgroup.NewTask(2, task2ReturnSuccessWrapper(2, true), false),
+			taskgroup.NewTask(3, task3ReturnFailWrapper(3, true), false),
 		}
 	)
 	tg = taskgroup.NewTaskGroup(taskgroup.WithWorkerNums(6))

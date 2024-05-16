@@ -1,7 +1,6 @@
 // Package taskgroup 实现了多任务并发执行，聚合收集最终所有任务的执行结果与执行状态，
-// 实现了并发（同步）编程中的扇出/扇入模式(Fan-Out/Fan-In)
 //
-// [taskgroup.TaskGroup] 引用 [sync.WaitGroup], 但增加了任务结果聚合和错误返回（首个必要成功任务的错误信息）
+// [taskgroup.TaskGroup] 引用 [sync.WaitGroup], 但增加了任务结果聚合和错误返回（首个必要成功任务的错误信息, 且会立即停止后续任务的运行）
 package taskgroup
 
 import (
