@@ -52,8 +52,11 @@ func BenchmarkTaskGroupMedium(b *testing.B) {
 	}
 }
 
-// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroupHigh$ -benchtime=10x -count=5 .
-// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroupHigh$ -cpu=1,2,4,8,16 -benchtime=10x -count=5 .
+// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroupHigh$ -benchtime=10x -count=5 -cpuprofile='cpu.pprof' .
+// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroupHigh$ -cpu='1,2,4,8,16' -benchtime=10x -count=5 -cpuprofile='cpu.pprof' .
+// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroupHigh$ -cpu='1,2,4,8,16' -benchtime=10x -count=5 -memprofile='mem.pprof' .
+// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroupHigh$ -cpu='1,2,4,8,16' -benchtime=10x -count=5 -blockprofile='block.pprof' .
+// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroupHigh$ -cpu='1,2,4,8,16' -benchtime=10x -count=5 -mutexprofile='mutex.pprof' .
 func BenchmarkTaskGroupHigh(b *testing.B) {
 	const taskNums = uint32(40)
 	tasks := buildTestCaseData(taskNums)
@@ -69,7 +72,7 @@ func BenchmarkTaskGroupHigh(b *testing.B) {
 }
 
 // go test -benchmem -run=^$ -bench ^BenchmarkErrGroupHigh$ -benchtime=10x -count=5 .
-// go test -benchmem -run=^$ -bench ^BenchmarkErrGroupHigh$ -cpu=1,2,4,8,16 -benchtime=10x -count=5 .
+// go test -benchmem -run=^$ -bench ^BenchmarkErrGroupHigh$ -cpu='1,2,4,8,16' -benchtime=10x -count=5 .
 func BenchmarkErrGroupHigh(b *testing.B) {
 	const taskNums = 40
 

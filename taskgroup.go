@@ -77,27 +77,28 @@ func (tg *TaskGroup) AddTask(tasks ...*Task) *TaskGroup {
 	if tg == nil {
 		return nil
 	}
+	if l, c := func() (int, int) { return len(tg.fNOs), cap(tg.tasks) }(); l == 0 || c == 0 {
+		tg.initOnce.Do(func() {
+			var preAllocatedCapacity = (len(tasks) + 1) * 2
+			if l == 0 {
+				tg.fNOs = make(map[uint32]struct{}, preAllocatedCapacity)
+			}
+			if c == 0 {
+				tg.tasks = make([]*Task, 0, preAllocatedCapacity)
+			}
+		})
+	}
 
-	tg.initOnce.Do(func() {
-		var preAllocatedCapacity = (len(tasks) + 1) * 2
-		if len(tg.fNOs) == 0 {
-			tg.fNOs = make(map[uint32]struct{}, preAllocatedCapacity)
-		}
-		if cap(tg.tasks) == 0 {
-			tg.tasks = make([]*Task, 0, preAllocatedCapacity)
-		}
-	})
-
-	for _, task := range tasks {
-		if task == nil {
+	for i := 0; i < len(tasks); i++ {
+		if tasks[i] == nil {
 			continue
 		}
-		if _, exist := tg.fNOs[task.fNO]; exist {
-			panic(fmt.Sprintf("AddTask: Already have the same task %d", task.fNO)) // 已经有相同的任务了
+		if _, exist := tg.fNOs[tasks[i].fNO]; exist {
+			panic(fmt.Sprintf("AddTask: Already have the same task %d", tasks[i].fNO)) // 已经有相同的任务了
 		}
-		if task.f != nil {
-			tg.fNOs[task.fNO] = struct{}{}
-			tg.tasks = append(tg.tasks, task)
+		if tasks[i].f != nil {
+			tg.fNOs[tasks[i].fNO] = struct{}{}
+			tg.tasks = append(tg.tasks, tasks[i])
 		}
 	}
 	return tg

@@ -22,3 +22,7 @@ go.work
 
 .trunk/
 .vscode/
+cpu.pprof
+mem.pprof
+block.pprof
+mutex.pprof
