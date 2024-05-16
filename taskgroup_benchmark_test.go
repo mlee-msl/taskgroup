@@ -52,10 +52,10 @@ func BenchmarkTaskGroupMedium(b *testing.B) {
 	}
 }
 
-// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroupHigh$ -benchtime=10x -count=6 .
-// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroupHigh$ -cpu=1,2 -benchtime=10x -count=6 .
+// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroupHigh$ -benchtime=10x -count=5 .
+// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroupHigh$ -cpu=1,2,4,8,16 -benchtime=10x -count=5 .
 func BenchmarkTaskGroupHigh(b *testing.B) {
-	const taskNums = uint32(4)
+	const taskNums = uint32(40)
 	tasks := buildTestCaseData(taskNums)
 
 	b.ResetTimer()
@@ -68,9 +68,10 @@ func BenchmarkTaskGroupHigh(b *testing.B) {
 	}
 }
 
-// go test -benchmem -run=^$ -bench ^BenchmarkErrGroupHigh$ -benchtime=10x -count=6 .
+// go test -benchmem -run=^$ -bench ^BenchmarkErrGroupHigh$ -benchtime=10x -count=5 .
+// go test -benchmem -run=^$ -bench ^BenchmarkErrGroupHigh$ -cpu=1,2,4,8,16 -benchtime=10x -count=5 .
 func BenchmarkErrGroupHigh(b *testing.B) {
-	const taskNums = 4
+	const taskNums = 40
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
