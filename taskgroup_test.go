@@ -285,3 +285,12 @@ func simulateIO(s string) {
 
 	time.Sleep(time.Duration(getRandomNum(800)) * time.Millisecond)
 }
+
+func TestIf(t *testing.T) {
+	// min 函数
+	a, b := 1, 2
+	fmt.Println(taskgroup.If(a <= b, a, b).(int) == a)
+
+	// max 函数
+	fmt.Println(taskgroup.If(a >= b, a, b).(int) == b)
+}

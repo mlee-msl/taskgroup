@@ -189,20 +189,11 @@ func (tg *TaskGroup) rearrangeTasks() {
 // adjustWorkerNums 调整工作组中的协程量
 func adjustWorkerNums(workerNums, taskNums uint32) uint32 {
 	// 工作协程数不得多余待执行任务总数，否则，因多余协程不会做任务，反而会由于创建或销毁这些协程而带来额外不必要的性能消耗
-	if workerNums > taskNums {
-		workerNums = taskNums
-	}
-	// `min`内建函数在【Go 1.21】引入
-	min := func(a, b uint32) uint32 {
-		if a <= b {
-			return a
-		}
-		return b
-	}
+	workerNums = If(workerNums > taskNums, taskNums, workerNums).(uint32)
 	if workerNums == 0 {
 		// 当协程数超过逻辑`cpu`数量过大时，带来的上下文切换（一般是用户态轻量协程调度，但当出现内核系统级线程调度，将带来更大的成本开销）或协程的创建、销毁成本将增大
 		// 因此，当任务组中多个任务共享在一个协程上执行时，就无需过多的协程量了
-		workerNums = min(taskNums, uint32(runtime.NumCPU()+1)*2)
+		workerNums = If(taskNums <= uint32(runtime.NumCPU()+1)*2, taskNums, uint32(runtime.NumCPU()+1)*2).(uint32)
 	}
 	return workerNums
 }
@@ -245,4 +236,12 @@ func (tr *TaskResult) Error() error {
 		return nil
 	}
 	return tr.err
+}
+
+// If 简单的三元表达式实现
+var If = func(cond bool, a, b interface{}) interface{} {
+	if cond {
+		return a
+	}
+	return b
 }
