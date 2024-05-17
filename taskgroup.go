@@ -77,13 +77,13 @@ func (tg *TaskGroup) AddTask(tasks ...*Task) *TaskGroup {
 	if tg == nil {
 		return nil
 	}
-	if l, c := func() (int, int) { return len(tg.fNOs), cap(tg.tasks) }(); l == 0 || c == 0 {
+	if fNOsNotInit, overCapacity := func() (bool, bool) { return tg.fNOs == nil, len(tasks) > cap(tg.tasks) }(); fNOsNotInit || overCapacity {
 		tg.initOnce.Do(func() {
 			var preAllocatedCapacity = (len(tasks) + 1) * 2
-			if l == 0 {
+			if fNOsNotInit {
 				tg.fNOs = make(map[uint32]struct{}, preAllocatedCapacity)
 			}
-			if c == 0 {
+			if overCapacity {
 				tg.tasks = make([]*Task, 0, preAllocatedCapacity)
 			}
 		})
@@ -209,7 +209,10 @@ func (tg *TaskGroup) worker(ctx context.Context, tasks chan *Task, results chan 
 			if task.mustSuccess && err != nil {
 				return err
 			}
-			results <- &TaskResult{task.fNO, result, err}
+			// 防止向关闭的`channel`中写入数据
+			if context.Cause(ctx) == nil {
+				results <- &TaskResult{task.fNO, result, err}
+			}
 		}
 	}
 	return nil
