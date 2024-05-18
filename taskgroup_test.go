@@ -137,7 +137,7 @@ func task1ReturnFail(fno uint32, isPrint bool) (interface{}, error) {
 		fmt.Printf("fno: %d, %s\n", fno, taskFlag)
 	}
 	simulateIO(strings.Repeat(taskFlag, 10))
-	return getRandomNum(2e3), fmt.Errorf("fno: %d, TASK1 err", fno)
+	return 1127, fmt.Errorf("fno: %d, TASK1 err", fno)
 }
 
 func task1ReturnFailWrapper(fno uint32, isPrint bool) taskgroup.TaskFunc {
@@ -166,7 +166,7 @@ func task2ReturnSuccess(fno uint32, isPrint bool) (interface{}, error) {
 	}
 	simulateIO(strings.Repeat(taskFlag, 10))
 	return task2Struct{
-		a: getRandomNum(1e1),
+		a: 1112,
 		b: "mlee",
 	}, nil
 }
@@ -191,7 +191,7 @@ func task3ReturnFail(fno uint32, isPrint bool) (interface{}, error) {
 		fmt.Printf("fno: %d, %s\n", fno, taskFlag)
 	}
 	simulateIO(strings.Repeat(taskFlag, 10))
-	return fmt.Sprintf("TASK3: The data is %d", getRandomNum(12)), fmt.Errorf("fno: %d, TASK3 err", fno)
+	return fmt.Sprintf("TASK3: The data is %d", 928), fmt.Errorf("fno: %d, TASK3 err", fno)
 }
 
 func task3ReturnFailWrapper(fno uint32, isPrint bool) taskgroup.TaskFunc {

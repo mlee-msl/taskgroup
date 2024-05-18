@@ -16,17 +16,17 @@ type TaskGroup struct {
 	workerNums uint32 // 工作组数量（协程数）
 
 	initOnce       sync.Once
-	runExactlyOnce sync.Once // 任务组当且仅当运行一次
+	runExactlyOnce sync.Once
 
 	fNOs  map[uint32]struct{}
-	tasks []*Task // 待执行的任务集合
+	tasks []*Task
 }
 
 // TaskFunc 任务函数的签名
 type TaskFunc func() (interface{}, error)
 
 type Task struct {
-	fNO         uint32   // 任务编号
+	fNO         uint32   // 任务编号(标识)
 	f           TaskFunc // 任务方法
 	mustSuccess bool     // 任务必须执行成功，否则整个任务组将会立即结束，且失败(将会返回第一个必须成功任务的失败结果)
 }
@@ -72,20 +72,19 @@ func NewTask(fNO uint32 /* 任务唯一标识 */, f TaskFunc /* 任务执行方�
 	return &Task{fNO, f, mustSuccess}
 }
 
-// AddTask 向任务组中添加若干待执行的任务`tasks`, notes: 出现了相同的任务(任务的标识相等)，将会`panic`
+// AddTask 向任务组中添加若干待执行的任务`tasks`
+//
+// NOTEs: 出现了相同的任务(任务的标识相等)，将会`panic`
 func (tg *TaskGroup) AddTask(tasks ...*Task) *TaskGroup {
 	if tg == nil {
 		return nil
 	}
-	if fNOsNotInit, overCapacity := func() (bool, bool) { return tg.fNOs == nil, len(tasks) > cap(tg.tasks) }(); fNOsNotInit || overCapacity {
+
+	if tg.fNOs == nil || len(tasks) > cap(tg.tasks) {
 		tg.initOnce.Do(func() {
-			var preAllocatedCapacity = (len(tasks) + 1) * 2
-			if fNOsNotInit {
-				tg.fNOs = make(map[uint32]struct{}, preAllocatedCapacity)
-			}
-			if overCapacity {
-				tg.tasks = make([]*Task, 0, preAllocatedCapacity)
-			}
+			preAllocatedCapacity := (len(tasks) + 1) * 2
+			tg.fNOs = make(map[uint32]struct{}, preAllocatedCapacity)
+			tg.tasks = make([]*Task, 0, preAllocatedCapacity)
 		})
 	}
 
@@ -93,8 +92,8 @@ func (tg *TaskGroup) AddTask(tasks ...*Task) *TaskGroup {
 		if tasks[i] == nil {
 			continue
 		}
-		if _, exist := tg.fNOs[tasks[i].fNO]; exist {
-			panic(fmt.Sprintf("AddTask: Already have the same task %d", tasks[i].fNO)) // 已经有相同的任务了
+		if _, exist := tg.fNOs[tasks[i].fNO]; exist { // 已经有相同的任务了
+			panic(fmt.Sprintf("AddTask: Already have the same Task %d", tasks[i].fNO))
 		}
 		if tasks[i].f != nil {
 			tg.fNOs[tasks[i].fNO] = struct{}{}
@@ -104,7 +103,7 @@ func (tg *TaskGroup) AddTask(tasks ...*Task) *TaskGroup {
 	return tg
 }
 
-// RunExactlyOnce 启动并运行任务组中的所有任务(仅会运行当且仅当一次)
+// RunExactlyOnce 启动并运行任务组中的所有任务(运行当且仅当一次)
 func (tg *TaskGroup) RunExactlyOnce() (result map[uint32]*TaskResult, err error) {
 	if tg == nil {
 		return nil, nil
@@ -117,6 +116,8 @@ func (tg *TaskGroup) RunExactlyOnce() (result map[uint32]*TaskResult, err error)
 }
 
 // Run 启动并运行任务组中的所有任务
+//
+// 当返回`non-nil`错误时，则，返回的任务执行结果将不可信
 func (tg *TaskGroup) Run() (map[uint32]*TaskResult, error) {
 	if tg == nil {
 		return nil, nil
@@ -160,7 +161,6 @@ func (tg *TaskGroup) Run() (map[uint32]*TaskResult, error) {
 
 	go func() {
 		wg.Wait()
-		// 当所有任务执行完毕后，再关闭`results`便于能结束遍历收集结果的`for`操作
 		close(results)
 	}()
 
@@ -191,7 +191,7 @@ func adjustWorkerNums(workerNums, taskNums uint32) uint32 {
 	// 工作协程数不得多余待执行任务总数，否则，因多余协程不会做任务，反而会由于创建或销毁这些协程而带来额外不必要的性能消耗
 	workerNums = If(workerNums > taskNums, taskNums, workerNums).(uint32)
 	if workerNums == 0 {
-		// 当协程数超过逻辑`cpu`数量过大时，带来的上下文切换（一般是用户态轻量协程调度，但当出现内核系统级线程调度，将带来更大的成本开销）或协程的创建、销毁成本将增大
+		// 当协程数超过逻辑`cpu`数量过大时，带来的上下文切换（一般是用户态轻量协程调度，但当出现内核系统级线程调度，将带来更大的成本开销）或协程的创建、销毁成本将增大，
 		// 因此，当任务组中多个任务共享在一个协程上执行时，就无需过多的协程量了
 		workerNums = If(taskNums <= uint32(runtime.NumCPU()+1)*2, taskNums, uint32(runtime.NumCPU()+1)*2).(uint32)
 	}
@@ -199,13 +199,13 @@ func adjustWorkerNums(workerNums, taskNums uint32) uint32 {
 }
 
 // worker 若干个任务将会共享在一个协程上执行任务
-func (tg *TaskGroup) worker(ctx context.Context, tasks chan *Task, results chan *TaskResult) error {
+func (tg *TaskGroup) worker(ctx context.Context, tasks <-chan *Task, results chan<- *TaskResult) error {
 	for task := range tasks {
 		select {
 		case <-ctx.Done(): // 接收到`ctx`被取消的信号，即刻停止后续任务的执行
 			return context.Cause(ctx)
 		default:
-			result, err := task.f() // 每个任务逐一被执行
+			result, err := task.f()
 			if task.mustSuccess && err != nil {
 				return err
 			}
@@ -223,6 +223,14 @@ type TaskResult struct {
 	fNO    uint32
 	result interface{}
 	err    error
+}
+
+// FNO 获取任务的唯一标识号
+func (tr *TaskResult) FNO() uint32 {
+	if tr == nil {
+		return 0
+	}
+	return tr.fNO
 }
 
 // Result 获取任务执行结果
