@@ -1,13 +1,11 @@
 // Package taskgroup 实现了多任务并发执行，聚合收集最终所有任务的执行结果与执行状态，
-// 实现了并发（同步）编程中的扇出/扇入模式(Fan-Out/Fan-In)
 //
-// [taskgroup.TaskGroup] 引用 [sync.WaitGroup], 但增加了任务结果聚合和错误返回（首个必要成功任务的错误信息）
+// [taskgroup.TaskGroup] 引用 [sync.WaitGroup], 但增加了任务结果聚合和错误返回（首个必要成功任务的错误信息, 且会立即停止后续任务的运行）
 package taskgroup
 
 import (
 	"context"
 	"fmt"
-	"runtime"
 	"sort"
 	"sync"
 )
@@ -17,17 +15,17 @@ type TaskGroup struct {
 	workerNums uint32 // 工作组数量（协程数）
 
 	initOnce       sync.Once
-	runExactlyOnce sync.Once // 任务组当且仅当运行一次
+	runExactlyOnce sync.Once
 
 	fNOs  map[uint32]struct{}
-	tasks []*Task // 待执行的任务集合
+	tasks []*Task
 }
 
 // TaskFunc 任务函数的签名
 type TaskFunc func() (interface{}, error)
 
 type Task struct {
-	fNO         uint32   // 任务编号
+	fNO         uint32   // 任务编号(标识)
 	f           TaskFunc // 任务方法
 	mustSuccess bool     // 任务必须执行成功，否则整个任务组将会立即结束，且失败(将会返回第一个必须成功任务的失败结果)
 }
@@ -73,38 +71,38 @@ func NewTask(fNO uint32 /* 任务唯一标识 */, f TaskFunc /* 任务执行方�
 	return &Task{fNO, f, mustSuccess}
 }
 
-// AddTask 向任务组中添加若干待执行的任务`tasks`, notes: 出现了相同的任务(任务的标识相等)，将会`panic`
+// AddTask 向任务组中添加若干待执行的任务`tasks`
+//
+// NOTEs: 出现了相同的任务(任务的标识相等)，将会`panic`
 func (tg *TaskGroup) AddTask(tasks ...*Task) *TaskGroup {
 	if tg == nil {
 		return nil
 	}
 
-	tg.initOnce.Do(func() {
-		var preAllocatedCapacity = (len(tasks) + 1) * 2
-		if len(tg.fNOs) == 0 {
+	if tg.fNOs == nil || len(tasks) > cap(tg.tasks) {
+		tg.initOnce.Do(func() {
+			preAllocatedCapacity := (len(tasks) + 1) * 2
 			tg.fNOs = make(map[uint32]struct{}, preAllocatedCapacity)
-		}
-		if cap(tg.tasks) == 0 {
 			tg.tasks = make([]*Task, 0, preAllocatedCapacity)
-		}
-	})
+		})
+	}
 
-	for _, task := range tasks {
-		if task == nil {
+	for i := 0; i < len(tasks); i++ {
+		if tasks[i] == nil || tasks[i].f == nil {
 			continue
 		}
-		if _, exist := tg.fNOs[task.fNO]; exist {
-			panic(fmt.Sprintf("AddTask: Already have the same task %d", task.fNO)) // 已经有相同的任务了
+
+		if _, exist := tg.fNOs[tasks[i].fNO]; exist { // 已经有相同的任务了
+			panic(fmt.Sprintf("AddTask: Already have the same Task %d", tasks[i].fNO))
 		}
-		if task.f != nil {
-			tg.fNOs[task.fNO] = struct{}{}
-			tg.tasks = append(tg.tasks, task)
-		}
+
+		tg.fNOs[tasks[i].fNO] = struct{}{}
+		tg.tasks = append(tg.tasks, tasks[i])
 	}
 	return tg
 }
 
-// RunExactlyOnce 启动并运行任务组中的所有任务(仅会运行当且仅当一次)
+// RunExactlyOnce 启动并运行任务组中的所有任务(运行当且仅当一次)
 func (tg *TaskGroup) RunExactlyOnce() (result map[uint32]*TaskResult, err error) {
 	if tg == nil {
 		return nil, nil
@@ -117,6 +115,8 @@ func (tg *TaskGroup) RunExactlyOnce() (result map[uint32]*TaskResult, err error)
 }
 
 // Run 启动并运行任务组中的所有任务
+//
+// 当返回`non-nil`错误时，则，返回的任务执行结果将不可信
 func (tg *TaskGroup) Run() (map[uint32]*TaskResult, error) {
 	if tg == nil {
 		return nil, nil
@@ -160,7 +160,6 @@ func (tg *TaskGroup) Run() (map[uint32]*TaskResult, error) {
 
 	go func() {
 		wg.Wait()
-		// 当所有任务执行完毕后，再关闭`results`便于能结束遍历收集结果的`for`操作
 		close(results)
 	}()
 
@@ -174,51 +173,51 @@ func (tg *TaskGroup) Run() (map[uint32]*TaskResult, error) {
 
 func (tg *TaskGroup) prepare() {
 	// 优先执行必要成功的任务，当同一个goroutine执行多个任务时，如出现了必要成功任务失败时，可提前结束goroutine，即，无需后续任务执行了
-	tg.rearrangeTasks()
+	rearrangeTasks(tg.tasks)
 	// 调整工作组中的协程量
 	WithWorkerNums(adjustWorkerNums(tg.workerNums, uint32(len(tg.tasks))))(tg)
 }
 
 // rearrangeTasks 任务顺序重排
-func (tg *TaskGroup) rearrangeTasks() {
-	sort.Slice(tg.tasks, func(i, j int) bool {
-		return tg.tasks[i].mustSuccess && !tg.tasks[j].mustSuccess
+//
+//go:nosplit
+func rearrangeTasks(tasks []*Task) {
+	sort.Slice(tasks, func(i, j int) bool {
+		if tasks[i] != nil && tasks[j] != nil {
+			return tasks[i].mustSuccess && !tasks[j].mustSuccess
+		}
+		return true
 	})
 }
 
 // adjustWorkerNums 调整工作组中的协程量
+//
+//go:nosplit
 func adjustWorkerNums(workerNums, taskNums uint32) uint32 {
 	// 工作协程数不得多余待执行任务总数，否则，因多余协程不会做任务，反而会由于创建或销毁这些协程而带来额外不必要的性能消耗
-	if workerNums > taskNums {
-		workerNums = taskNums
-	}
-	// `min`内建函数在【Go 1.21】引入
-	min := func(a, b uint32) uint32 {
-		if a <= b {
-			return a
-		}
-		return b
-	}
-	if workerNums == 0 {
-		// 当协程数超过逻辑`cpu`数量过大时，带来的上下文切换（一般是用户态轻量协程调度，但当出现内核系统级线程调度，将带来更大的成本开销）或协程的创建、销毁成本将增大
-		// 因此，当任务组中多个任务共享在一个协程上执行时，就无需过多的协程量了
-		workerNums = min(taskNums, uint32(runtime.NumCPU()+1)*2)
+	workerNums = If(workerNums > taskNums, taskNums, workerNums).(uint32)
+	if minPerWorkerTaskNums := (taskNums / 4) + 1; workerNums < minPerWorkerTaskNums { // 每个协程上至少包含有`1/4`的任务量
+		// 当任务数过多，协程数又过少时，会出现执行异常(by Fuzz Test)
+		workerNums = minPerWorkerTaskNums
 	}
 	return workerNums
 }
 
 // worker 若干个任务将会共享在一个协程上执行任务
-func (tg *TaskGroup) worker(ctx context.Context, tasks chan *Task, results chan *TaskResult) error {
+func (tg *TaskGroup) worker(ctx context.Context, tasks <-chan *Task, results chan<- *TaskResult) error {
 	for task := range tasks {
 		select {
 		case <-ctx.Done(): // 接收到`ctx`被取消的信号，即刻停止后续任务的执行
 			return context.Cause(ctx)
 		default:
-			result, err := task.f() // 每个任务逐一被执行
+			result, err := task.f()
 			if task.mustSuccess && err != nil {
 				return err
 			}
-			results <- &TaskResult{task.fNO, result, err}
+			// 防止向关闭的`channel`中写入数据
+			if context.Cause(ctx) == nil {
+				results <- &TaskResult{task.fNO, result, err}
+			}
 		}
 	}
 	return nil
@@ -229,6 +228,14 @@ type TaskResult struct {
 	fNO    uint32
 	result interface{}
 	err    error
+}
+
+// FNO 获取任务的唯一标识号
+func (tr *TaskResult) FNO() uint32 {
+	if tr == nil {
+		return 0
+	}
+	return tr.fNO
 }
 
 // Result 获取任务执行结果
@@ -245,4 +252,12 @@ func (tr *TaskResult) Error() error {
 		return nil
 	}
 	return tr.err
+}
+
+// If 简单的三元表达式实现
+var If = func(cond bool, a, b interface{}) interface{} {
+	if cond {
+		return a
+	}
+	return b
 }
