@@ -6,7 +6,6 @@ package taskgroup
 import (
 	"context"
 	"fmt"
-	"runtime"
 	"sort"
 	"sync"
 )
@@ -89,16 +88,16 @@ func (tg *TaskGroup) AddTask(tasks ...*Task) *TaskGroup {
 	}
 
 	for i := 0; i < len(tasks); i++ {
-		if tasks[i] == nil {
+		if tasks[i] == nil || tasks[i].f == nil {
 			continue
 		}
+
 		if _, exist := tg.fNOs[tasks[i].fNO]; exist { // 已经有相同的任务了
 			panic(fmt.Sprintf("AddTask: Already have the same Task %d", tasks[i].fNO))
 		}
-		if tasks[i].f != nil {
-			tg.fNOs[tasks[i].fNO] = struct{}{}
-			tg.tasks = append(tg.tasks, tasks[i])
-		}
+
+		tg.fNOs[tasks[i].fNO] = struct{}{}
+		tg.tasks = append(tg.tasks, tasks[i])
 	}
 	return tg
 }
@@ -174,26 +173,32 @@ func (tg *TaskGroup) Run() (map[uint32]*TaskResult, error) {
 
 func (tg *TaskGroup) prepare() {
 	// 优先执行必要成功的任务，当同一个goroutine执行多个任务时，如出现了必要成功任务失败时，可提前结束goroutine，即，无需后续任务执行了
-	tg.rearrangeTasks()
+	rearrangeTasks(tg.tasks)
 	// 调整工作组中的协程量
 	WithWorkerNums(adjustWorkerNums(tg.workerNums, uint32(len(tg.tasks))))(tg)
 }
 
 // rearrangeTasks 任务顺序重排
-func (tg *TaskGroup) rearrangeTasks() {
-	sort.Slice(tg.tasks, func(i, j int) bool {
-		return tg.tasks[i].mustSuccess && !tg.tasks[j].mustSuccess
+//
+//go:nosplit
+func rearrangeTasks(tasks []*Task) {
+	sort.Slice(tasks, func(i, j int) bool {
+		if tasks[i] != nil && tasks[j] != nil {
+			return tasks[i].mustSuccess && !tasks[j].mustSuccess
+		}
+		return true
 	})
 }
 
 // adjustWorkerNums 调整工作组中的协程量
+//
+//go:nosplit
 func adjustWorkerNums(workerNums, taskNums uint32) uint32 {
 	// 工作协程数不得多余待执行任务总数，否则，因多余协程不会做任务，反而会由于创建或销毁这些协程而带来额外不必要的性能消耗
 	workerNums = If(workerNums > taskNums, taskNums, workerNums).(uint32)
-	if workerNums == 0 {
-		// 当协程数超过逻辑`cpu`数量过大时，带来的上下文切换（一般是用户态轻量协程调度，但当出现内核系统级线程调度，将带来更大的成本开销）或协程的创建、销毁成本将增大，
-		// 因此，当任务组中多个任务共享在一个协程上执行时，就无需过多的协程量了
-		workerNums = If(taskNums <= uint32(runtime.NumCPU()+1)*2, taskNums, uint32(runtime.NumCPU()+1)*2).(uint32)
+	if minPerWorkerTaskNums := (taskNums / 4) + 1; workerNums < minPerWorkerTaskNums { // 每个协程上至少包含有`1/4`的任务量
+		// 当任务数过多，协程数又过少时，会出现执行异常(by Fuzz Test)
+		workerNums = minPerWorkerTaskNums
 	}
 	return workerNums
 }

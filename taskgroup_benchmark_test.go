@@ -80,7 +80,7 @@ func BenchmarkErrGroupHigh(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		errGroup, _ := errgroup.WithContext(context.Background())
 		for i := 1; i <= taskNums; i++ {
-			errGroup.Go(taskSetForErrGroup[getRandomNum(len(taskSetForErrGroup))])
+			errGroup.Go(taskSetForErrGroup[getRandomNumWithMod(len(taskSetForErrGroup))])
 		}
 		_ = errGroup.Wait()
 	}
@@ -121,10 +121,10 @@ func buildTestCaseData(taskNums uint32) []*taskgroup.Task {
 	tasks := make([]*taskgroup.Task, 0, taskNums)
 	for i := 1; i <= int(taskNums); i++ {
 		var mustSuccess bool
-		if getRandomNum(100) < 80 { // `80%`的接口要求必须是成功的
+		if getRandomNumWithMod(100) < 80 { // `80%`的接口要求必须是成功的
 			mustSuccess = true
 		}
-		tasks = append(tasks, taskgroup.NewTask(uint32(getRandomNum(1e10)), taskSetForTaskGroup[getRandomNum(len(taskSetForTaskGroup))], mustSuccess))
+		tasks = append(tasks, taskgroup.NewTask(uint32(getRandomNumWithMod(1e10)), taskSetForTaskGroup[getRandomNumWithMod(len(taskSetForTaskGroup))], mustSuccess))
 	}
 	return tasks
 }

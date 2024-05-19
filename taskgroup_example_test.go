@@ -19,7 +19,7 @@ func ExampleTaskGroup_typical() {
 
 	taskResults, err := taskgroup.NewTaskGroup(taskgroup.WithWorkerNums(uint32(len(tasks)))).AddTask(tasks...).Run()
 	if err != nil {
-		fmt.Printf("err: %+v", err)
+		fmt.Printf("err: %+v\n", err)
 		return
 	}
 	for fno, result := range taskResults {
@@ -41,7 +41,7 @@ func ExampleTaskGroup_default() {
 
 	taskResults, err := new(taskgroup.TaskGroup).AddTask(tasks...).Run()
 	if err != nil {
-		fmt.Printf("err: %+v", err)
+		fmt.Printf("err: %+v\n", err)
 		return
 	}
 	for fno, result := range taskResults {
@@ -63,7 +63,7 @@ func ExampleTaskGroup_justNotBad() {
 
 	taskResults, err := taskgroup.NewTaskGroup(nil).AddTask(tasks...).Run()
 	if err != nil {
-		fmt.Printf("err: %+v", err)
+		fmt.Printf("err: %+v\n", err)
 		return
 	}
 	for fno, result := range taskResults {
@@ -77,6 +77,12 @@ func ExampleTaskGroup_justNotBad() {
 
 // Abnormal 展示了异常的使用案例，包括，多任务创建、任务执行、结果收集，错误处理等
 func ExampleTaskGroup_abnormal() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("err: %+v\n", r)
+		}
+	}()
+
 	tasks := []*taskgroup.Task{
 		taskgroup.NewTask(1, task1ReturnFailWrapper(1, false), true),
 		taskgroup.NewTask(2, task2ReturnSuccessWrapper(2, false), true),
@@ -87,13 +93,12 @@ func ExampleTaskGroup_abnormal() {
 
 	taskResults, err := taskgroup.NewTaskGroup(taskgroup.WithWorkerNums(uint32(len(tasks)))).AddTask(tasks...).Run()
 	if err != nil {
-		fmt.Printf("err: %+v", err)
+		fmt.Printf("err: %+v\n", err)
 		return
 	}
 	for fno, result := range taskResults {
 		fmt.Printf("FNO: %d, RESULT: %v , STATUS: %v\n", fno, result.Result(), result.Error())
 	}
 	// Output:
-	// panic: AddTask: Already have the same Task 2
-	// ...
+	// err: AddTask: Already have the same Task 2
 }
