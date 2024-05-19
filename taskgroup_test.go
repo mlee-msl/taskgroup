@@ -25,6 +25,7 @@ func getRandomNumWithMod(mod int) int {
 // ----------------------功能测试----------------------
 // ---------------------------------------------------
 // 结合白盒测试进行黑盒测试或灰盒测试
+// 正常情况的功能测试（模糊测试）
 //
 // go test -gcflags="all=-N -l" -run=^$ -fuzz=FuzzTaskGroupRun_normal  ./...
 func FuzzTaskGroupRun_normal(f *testing.F) {
@@ -166,7 +167,7 @@ func checkTaskGroupRun(i input, o output) bool {
 	return true
 }
 
-// 异常的功能测试
+// 异常情况的功能测试
 //
 // go test -gcflags="all=-N -l" -run=^$ -fuzz=TestTaskGroupRun_abnormal  ./...
 func TestTaskGroupRun_abnormal(t *testing.T) {
