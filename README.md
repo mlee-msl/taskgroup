@@ -24,8 +24,8 @@
 
 ## IDEAs & TODOs
 
-1. 当使用[errgroup.WithContext](https://cs.opensource.google/go/x/sync/+/master:errgroup/errgroup.go;l=48;bpv=1;bpt=1)时，出现错误`cancel`后，需要同步（如，`atomic`同步原语）后续协程<big><u>（[任务阻塞](https://cs.opensource.google/go/x/sync/+/master:errgroup/errgroup.go;l=71;bpv=1;bpt=1)还未开始执行的协程）</u></big>不在启动(后续执行无意义), 也避免了出现内存泄露（协程泄露等）
-2. 增加一个默认的`context.Context`，和`errgroup.WithContext`的处理逻辑保持一致，统一使用`context.Context`处理错误(实现上，整体会更加优雅）
+- 当使用[errgroup.WithContext](https://cs.opensource.google/go/x/sync/+/master:errgroup/errgroup.go;l=48;bpv=1;bpt=1)时，出现错误`cancel`后，需要同步（如，`atomic`同步原语）后续协程<big><u>（因[任务阻塞](https://cs.opensource.google/go/x/sync/+/master:errgroup/errgroup.go;l=71;bpv=1;bpt=1)还未开始执行的协程）</u></big>不再启动(后续执行已无意义，<u>业务层面已选择了带取消的上下文执行方式</u>), 也确保避免了出现内存泄露（协程泄露等）等可能的问题
+- 增加一个默认的`context.Context`，和`errgroup.WithContext`的处理逻辑保持一致，统一使用`context.Context`处理错误 (实现上，可能会使整体更加优雅）
 
 ## 关于性能
 
