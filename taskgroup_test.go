@@ -27,7 +27,7 @@ func getRandomNumWithMod(mod int) int {
 // 结合白盒测试进行黑盒测试或灰盒测试
 // 正常情况的功能测试（模糊测试）
 //
-// go test -gcflags="all=-N -l" -run=^$ -fuzz=FuzzTaskGroupRun_normal  ./...
+// go test -gcflags="all=-N -l" -run=^$ -fuzz=FuzzTaskGroupRun_normal [-fuzztime=60s] ./...
 func FuzzTaskGroupRun_normal(f *testing.F) {
 	var (
 		taskTotalMax        = 500 // 任务数数量上限
@@ -169,7 +169,7 @@ func checkTaskGroupRun(i input, o output) bool {
 
 // 异常情况的功能测试
 //
-// go test -gcflags="all=-N -l" -run=^$ -fuzz=TestTaskGroupRun_abnormal  ./...
+// go test -gcflags="all=-N -l" -run=^$ -fuzz=TestTaskGroupRun_abnormal [-fuzztime=60s] ./...
 func TestTaskGroupRun_abnormal(t *testing.T) {
 	defer func() {
 		r := recover()
