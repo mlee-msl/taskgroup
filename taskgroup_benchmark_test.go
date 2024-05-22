@@ -2,6 +2,7 @@ package taskgroup_test
 
 import (
 	"context"
+	"math/rand"
 	"runtime"
 	"testing"
 
@@ -12,6 +13,7 @@ import (
 // ---------------------------------------------------
 // ----------------------性能测试----------------------
 // ---------------------------------------------------
+
 func BenchmarkTaskGroupZero(b *testing.B) {
 	tasks := buildTestCaseData(0)
 
@@ -52,11 +54,6 @@ func BenchmarkTaskGroupMedium(b *testing.B) {
 	}
 }
 
-// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroupHigh$ -benchtime=10x -count=5 -cpuprofile='cpu.pprof' .
-// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroupHigh$ -cpu='1,2,4,8,16' -benchtime=10x -count=5 -cpuprofile='cpu.pprof' .
-// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroupHigh$ -cpu='1,2,4,8,16' -benchtime=10x -count=5 -memprofile='mem.pprof' .
-// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroupHigh$ -cpu='1,2,4,8,16' -benchtime=10x -count=5 -blockprofile='block.pprof' .
-// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroupHigh$ -cpu='1,2,4,8,16' -benchtime=10x -count=5 -mutexprofile='mutex.pprof' .
 func BenchmarkTaskGroupHigh(b *testing.B) {
 	const taskNums = uint32(40)
 	tasks := buildTestCaseData(taskNums)
@@ -65,14 +62,11 @@ func BenchmarkTaskGroupHigh(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		workerNums := uint32(runtime.NumCPU()) // 初步验证，协程数和逻辑`cpu`量一致时，性能表现最佳
 		// workerNums := taskNums
-		// tg := taskgroup.NewTaskGroup(taskgroup.WithWorkerNums(taskNums))
 		tg := taskgroup.NewTaskGroup(taskgroup.WithWorkerNums(workerNums))
 		_, _ = tg.AddTask(tasks...).Run()
 	}
 }
 
-// go test -benchmem -run=^$ -bench ^BenchmarkErrGroupHigh$ -benchtime=10x -count=5 .
-// go test -benchmem -run=^$ -bench ^BenchmarkErrGroupHigh$ -cpu='1,2,4,8,16' -benchtime=10x -count=5 .
 func BenchmarkErrGroupHigh(b *testing.B) {
 	const taskNums = 40
 
@@ -80,7 +74,7 @@ func BenchmarkErrGroupHigh(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		errGroup, _ := errgroup.WithContext(context.Background())
 		for i := 1; i <= taskNums; i++ {
-			errGroup.Go(taskSetForErrGroup[getRandomNumWithMod(len(taskSetForErrGroup))])
+			errGroup.Go(taskSetForErrGroup[rand.Intn(len(taskSetForErrGroup))])
 		}
 		_ = errGroup.Wait()
 	}
@@ -121,10 +115,44 @@ func buildTestCaseData(taskNums uint32) []*taskgroup.Task {
 	tasks := make([]*taskgroup.Task, 0, taskNums)
 	for i := 1; i <= int(taskNums); i++ {
 		var mustSuccess bool
-		if getRandomNumWithMod(100) < 80 { // `80%`的接口要求必须是成功的
+		if rand.Float64() < 0.8 { // `80%`的接口要求必须是成功的
 			mustSuccess = true
 		}
-		tasks = append(tasks, taskgroup.NewTask(uint32(getRandomNumWithMod(1e10)), taskSetForTaskGroup[getRandomNumWithMod(len(taskSetForTaskGroup))], mustSuccess))
+		tasks = append(tasks, taskgroup.NewTask(uint32(i), taskSetForTaskGroup[rand.Intn(len(taskSetForTaskGroup))], mustSuccess))
 	}
 	return tasks
+}
+
+// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroup$ -cpu='1,2,4,8,16' [-benchtime=10x|-benchtime=1s] -count=5 .
+// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroup$ -cpu='1,2,4,8,16' -benchtime=10x -count=5 .
+// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroup$ -cpu='1,2,4,8,16' -benchtime=10x -count=5 -cpuprofile='cpu.pprof' .
+// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroup$ -cpu='1,2,4,8,16' -benchtime=10x -count=5 -memprofile='mem.pprof' .
+// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroup$ -cpu='1,2,4,8,16' -benchtime=10x -count=5 -blockprofile='block.pprof' .
+// go test -benchmem -run=^$ -bench ^BenchmarkTaskGroup$ -cpu='1,2,4,8,16' -benchtime=10x -count=5 -mutexprofile='mutex.pprof' .
+func BenchmarkTaskGroup(b *testing.B) {
+	const taskNums = uint32(60)
+	tasks := buildTestCaseData(taskNums)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		workerNums := uint32(runtime.NumCPU()) // 初步验证，协程数和逻辑`cpu`量一致时，性能表现最佳
+		// workerNums := taskNums
+		tg := taskgroup.NewTaskGroup(taskgroup.WithWorkerNums(workerNums))
+		_, _ = tg.AddTask(tasks...).Run()
+	}
+}
+
+// go test -benchmem -run=^$ -bench ^BenchmarkErrGroup$ [-benchtime=10x|-benchtime=1s -count=5 .
+// go test -benchmem -run=^$ -bench ^BenchmarkErrGroup$ -cpu='1,2,4,8,16' -benchtime=10x -count=5 .
+func BenchmarkErrGroup(b *testing.B) {
+	const taskNums = 60
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		errGroup, _ := errgroup.WithContext(context.Background())
+		for i := 1; i <= taskNums; i++ {
+			errGroup.Go(taskSetForErrGroup[rand.Intn(len(taskSetForErrGroup))])
+		}
+		_ = errGroup.Wait()
+	}
 }

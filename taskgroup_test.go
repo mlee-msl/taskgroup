@@ -13,49 +13,40 @@ import (
 	"github.com/mlee-msl/taskgroup"
 )
 
-func init() {
-	rand.Seed(time.Now().Unix())
-}
-
-func getRandomNumWithMod(mod int) int {
-	return rand.Int() % mod
-}
-
 // ---------------------------------------------------
 // ----------------------功能测试----------------------
 // ---------------------------------------------------
+
 // 结合白盒测试进行黑盒测试或灰盒测试
 // 正常情况的功能测试（模糊测试）
 //
 // go test -gcflags="all=-N -l" -run=^$ -fuzz=FuzzTaskGroupRun_normal [-fuzztime=60s] ./...
 func FuzzTaskGroupRun_normal(f *testing.F) {
 	var (
-		taskTotalMax        = 500 // 任务数数量上限
-		taskKeyMax          = len(taskFuncSet)
-		probabilityValueMax = 100
-		successFlagMax      = 80 // `80%`的概率设置任务为必须执行成功
-		taskStatusMax       = 95 // `95%`的概率任务不为空
+		taskTotalMax   = 500 // 任务数数量上限
+		taskKeyMax     = len(taskFuncSet)
+		successFlagMax = 0.8  // `80%`的概率设置任务为必须执行成功
+		taskStatusMax  = 0.99 // `99%`的概率任务不为空
 	)
 
 	testCases := []struct {
 		workerNums           uint32
 		taskTotalSeed        uint32 // 执行任务总数
-		probabilityValueSeed uint32
 	}{
-		{0, 0, 2},
-		{1, 1, 20},
-		{3, 4, 30},
-		{10, 40, 5},
-		{30, 100, 102},
+		{0, 0},
+		{1, 1},
+		{3, 4},
+		{10, 40},
+		{30, 100},
 	}
 	// 补充已知测试用例（白盒测试）
 	// seed corpus for the fuzz test
 	for _, testCase := range testCases {
-		f.Add(testCase.workerNums, testCase.taskTotalSeed, testCase.probabilityValueSeed)
+		f.Add(testCase.workerNums, testCase.taskTotalSeed)
 	}
 
 	// 通过以下转化，将需要待执行的任务集合的[无限输入空间]转化为[有限输入空间]
-	f.Fuzz(func(t *testing.T, workerNums, taskTotalSeed, probabilityValueSeed uint32) {
+	f.Fuzz(func(t *testing.T, workerNums, taskTotalSeed uint32) {
 		var (
 			taskTotal             = taskTotalSeed % uint32(taskTotalMax)
 			tasks                 = make([]*taskgroup.Task, 0, taskTotal)
@@ -65,14 +56,13 @@ func FuzzTaskGroupRun_normal(f *testing.F) {
 		)
 		for i := 0; i < int(taskTotal); i++ {
 			var (
-				taskFuncNo       = taskFuncNo(getRandomNumWithMod(taskKeyMax))
-				probabilityValue = int(probabilityValueSeed) % probabilityValueMax
-				taskFuncSetState = probabilityValue < successFlagMax
+				taskFuncNo       = taskFuncNo(rand.Intn(taskKeyMax))
+				taskFuncSetState = rand.Float64() < successFlagMax
 			)
 			taskFuncNos = append(taskFuncNos, taskFuncNo)
 			taskFuncSetStates = append(taskFuncSetStates, taskFuncSetState)
 			taskNoToTaskFuncNoMap[i] = taskFuncNo
-			if probabilityValue > taskStatusMax {
+			if rand.Float64() > taskStatusMax {
 				tasks = append(tasks, nil)
 				continue
 			}
@@ -85,6 +75,7 @@ func FuzzTaskGroupRun_normal(f *testing.F) {
 	})
 }
 
+// taskFuncNo 任务函数编号
 type taskFuncNo byte
 
 const (
@@ -436,5 +427,11 @@ func simulateIO(s string) {
 	_, _ = buf.WriteString(s)
 	_ = buf.String()
 
-	time.Sleep(time.Duration(getRandomNumWithMod(10)) * time.Millisecond)
+	if sleep := rand.Intn(4); sleep > 0 {
+		time.Sleep(time.Duration(sleep) * time.Millisecond)
+	}
+}
+
+func init() {
+	rand.Seed(time.Now().Unix())
 }

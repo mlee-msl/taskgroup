@@ -25,18 +25,39 @@
 ## IDEAs & TODOs
 
 - 当使用[errgroup.WithContext](https://cs.opensource.google/go/x/sync/+/master:errgroup/errgroup.go;l=48;bpv=1;bpt=1)时，出现错误`cancel`后，需要同步（如，`atomic`同步原语）后续协程<big><u>（因[任务阻塞](https://cs.opensource.google/go/x/sync/+/master:errgroup/errgroup.go;l=71;bpv=1;bpt=1)还未开始执行的协程）</u></big>不再启动(后续执行已无意义，<u>业务层面已选择了带取消的上下文执行方式</u>), 也确保避免了出现内存泄露（协程泄露等）等可能的问题
-- 增加一个默认的`context.Context`，和`errgroup.WithContext`的处理逻辑保持一致，统一使用`context.Context`处理错误 (实现上，可能会使整体更加优雅）
+- 增加一个默认的`context.Context`，和`errgroup.WithContext`的处理逻辑保持一致，统一使用`context.Context`处理错误 (功能实现上，整体可能会更加优雅点）
 
 ## 关于性能
+### 指标
 
-- `cpu`性能  
-`go test -benchmem -run=^$ -bench ^BenchmarkTaskGroupHigh$ -cpu='1,2,4,8,16' -benchtime=10x -count=5 -cpuprofile='cpu.pprof' .`
-- 内存性能  
-`go test -benchmem -run=^$ -bench ^BenchmarkTaskGroupHigh$ -cpu='1,2,4,8,16' -benchtime=10x -count=5 -memprofile='mem.pprof' .`
-- 阻塞性能  
-`go test -benchmem -run=^$ -bench ^BenchmarkTaskGroupHigh$ -cpu='1,2,4,8,16' -benchtime=10x -count=5 -blockprofile='block.pprof' .`
-- 锁性能  
-`go test -benchmem -run=^$ -bench ^BenchmarkTaskGroupHigh$ -cpu='1,2,4,8,16' -benchtime=10x -count=5 -mutexprofile='mutex.pprof' .`
+> `cpu`性能  
+>> `go test -benchmem -run=^$ -bench ^BenchmarkTaskGroup$ -cpu='1,2,4,8,16' [-benchtime=10x|-benchtime=1s] -count=3 -cpuprofile='cpu.pprof' .`   
+>
+> 内存性能  
+>> `go test -benchmem -run=^$ -bench ^BenchmarkTaskGroup$ -cpu='1,2,4,8,16' [-benchtime=10x|-benchtime=1s] -count=3 -memprofile='mem.pprof' .`  
+>
+> 阻塞性能  
+>> `go test -benchmem -run=^$ -bench ^BenchmarkTaskGroup$ -cpu='1,2,4,8,16' [-benchtime=10x|-benchtime=1s] -count=3 -blockprofile='block.pprof' .`   
+>
+> 锁性能  
+>>`go test -benchmem -run=^$ -bench ^BenchmarkTaskGroup$ -cpu='1,2,4,8,16' [-benchtime=10x|-benchtime=1s] -count=3 -mutexprofile='mutex.pprof' .`   
+### 效果对比
+> `taskgroup`   
+>> **并发任务为6**   
+>> ![taskgroup_6.jpg](https://s2.loli.net/2024/05/23/rnBPEpqkZCNJYvz.jpg)   
+>> **并发任务为60**   
+>> ![taskgroup_60.jpg](https://s2.loli.net/2024/05/23/oviDfZxEnpyCBsc.jpg)   
+>
+> `errgroup`   
+>> **并发任务为6**   
+>> ![errgroup_6.jpg](https://s2.loli.net/2024/05/23/bYDLAC7nMx6WKPv.jpg)   
+>> **并发任务为60**   
+>> ![errgroup_60.jpg](https://s2.loli.net/2024/05/23/mJKscFZ5pyhHal7.jpg)   
+>
+>> **可以看出**，在增加任务执行结果聚合、失败快速返回的能力前提下：  
+>>> 当并发任务数量不多时，前者相较于后者的综合性能提升还不明显；     
+>>> 当并发任务数量较多时，前者相较于后者的综合性能表现提升较大；   
+>>> 深度验证后发现，随着并发任务量的增加，其综合性能表现差距会越明显。   
 ## 其他
 - 核心功能的测试用例均采用`Fuzz Test`模糊测试，并测试通过
 - 包中提供的核心功能，均有`Example Test`样例用例，并执行通过，**[`更多详情`](https://pkg.go.dev/github.com/mlee-msl/taskgroup "欢迎使用，任何意见或建议可联系`2210508401@qq.com`")**
