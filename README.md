@@ -1,6 +1,6 @@
 # taskgroup
 
-*golang*并发执行多任务(网络i/o、磁盘i/o、内存i/o等)，并聚合收集多任务执行结果与执行状态（如<u>任务组执行失败</u>，返回首个<u>必要成功</u>任务的错误信息, 且会立即停止后续任务的运行）。
+*golang*并发执行多任务(网络i/o、磁盘i/o、内存i/o等)，并聚合收集多任务执行结果与执行状态（如<u>任务组执行失败</u>，将返回首个<u>必要成功</u>任务的错误信息, 且会立即停止后续任务的运行）。
 **[`使用文档`](https://pkg.go.dev/github.com/mlee-msl/taskgroup "欢迎使用，任何意见或建议可联系`2210508401@qq.com`")**
 
 > **使用:** go get github.com/mlee-msl/taskgroup
@@ -11,7 +11,8 @@
 - 将多个任务的执行结果与执行状态进行聚合
 - 通过**扇出/扇入**模式，结合线程安全`channel`实现高效协程间通信
 - <big>多任务复用(共享)同一协程</big>，避免了因协程频繁创建或销毁带来的开销，一定程度上也减少了上下文切换（特别是，内核线程与用户协程间的切换）的频次
-- `early-return`，当出现<big><u>必要成功</u></big>的任务失败时，停止执行所有`goroutine`后续的其他任务
+- `early-return`，当出现<big><u>必要成功</u></big>的任务失败时，将停止执行所有`goroutine`上还未启动的所有其他任务
+  >NOTEs，当所有任务都设置为非必要成功时，即可退化为`errgroup`包的使用场景
 
 ## vs官方扩展库[errgroup](https://pkg.go.dev/golang.org/x/sync/errgroup "errgroup")
 
@@ -43,21 +44,21 @@
 >>`go test -benchmem -run=^$ -bench ^BenchmarkTaskGroup$ -cpu='1,2,4,8,16' [-benchtime=10x|-benchtime=1s] -count=3 -mutexprofile='mutex.pprof' .`   
 ### 效果对比
 > `taskgroup`   
->> **并发任务为6**   
+>> 并发任务量: 6 
 >> ![taskgroup_6.jpg](https://s2.loli.net/2024/05/23/rnBPEpqkZCNJYvz.jpg)   
->> **并发任务为60**   
+>> 并发任务量: 60  
 >> ![taskgroup_60.jpg](https://s2.loli.net/2024/05/23/oviDfZxEnpyCBsc.jpg)   
 >
 > `errgroup`   
->> **并发任务为6**   
+>> 并发任务量: 6   
 >> ![errgroup_6.jpg](https://s2.loli.net/2024/05/23/bYDLAC7nMx6WKPv.jpg)   
->> **并发任务为60**   
+>> 并发任务量: 60   
 >> ![errgroup_60.jpg](https://s2.loli.net/2024/05/23/mJKscFZ5pyhHal7.jpg)   
 >
->> **可以看出**，在增加任务执行结果聚合、失败快速返回的能力前提下：  
->>> 当并发任务数量不多时，前者相较于后者的综合性能提升还不明显；     
->>> 当并发任务数量较多时，前者相较于后者的综合性能表现提升较大；   
->>> 深度验证后发现，随着并发任务量的增加，其综合性能表现差距会越明显。   
+>> <big>**可以看出**</big>，在增加任务执行结果聚合、失败快速返回的能力前提下：  
+>>> 当并发任务量不多时，前者相较于后者的综合性能提升还不明显；     
+>>> 当并发任务量较多时，前者相较于后者的综合性能表现提升较大；   
+>>> 深度验证后发现，随着并发任务量的增加，其综合性能表现的差距将会越明显。   
 ## 其他
 - 核心功能的测试用例均采用`Fuzz Test`模糊测试，并测试通过
 - 包中提供的核心功能，均有`Example Test`样例用例，并执行通过，**[`更多详情`](https://pkg.go.dev/github.com/mlee-msl/taskgroup "欢迎使用，任何意见或建议可联系`2210508401@qq.com`")**

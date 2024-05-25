@@ -196,9 +196,10 @@ func rearrangeTasks(tasks []*Task) {
 func adjustWorkerNums(workerNums, taskNums uint32) uint32 {
 	// 工作协程数不得多余待执行任务总数，否则，因多余协程不会做任务，反而会由于创建或销毁这些协程而带来额外不必要的性能消耗
 	workerNums = If(workerNums > taskNums, taskNums, workerNums).(uint32)
-	if minPerWorkerTaskNums := (taskNums / 4) + 1; workerNums < minPerWorkerTaskNums { // 每个协程上至少包含有`1/4`的任务量
-		// 当任务数过多，协程数又过少时，会出现执行异常(by Fuzz Test)
-		workerNums = minPerWorkerTaskNums
+	const taskShareLimit = 5 // 任务共享协程量上限
+	if minWorkerNums := (taskNums / taskShareLimit) + 1; workerNums < minWorkerNums {
+		// 当任务数过多，协程数又过少时，会出现任务执行等待(by Fuzz Test)
+		workerNums = minWorkerNums
 	}
 	return workerNums
 }

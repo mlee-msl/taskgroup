@@ -30,8 +30,8 @@ func FuzzTaskGroupRun_normal(f *testing.F) {
 	)
 
 	testCases := []struct {
-		workerNums           uint32
-		taskTotalSeed        uint32 // 执行任务总数
+		workerNums    uint32
+		taskTotalSeed uint32 // 执行任务总数
 	}{
 		{0, 0},
 		{1, 1},
