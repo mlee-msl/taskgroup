@@ -2,6 +2,7 @@ package taskgroup_test
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/mlee-msl/taskgroup"
 )
@@ -12,6 +13,13 @@ import (
 
 // Typical 展示了典型的使用案例，包括，多任务创建、任务执行、结果收集，错误处理等
 func ExampleTaskGroup_typical() {
+	defer func() func() {
+		start := time.Now()
+		return func() {
+			_ = fmt.Sprintf("elapsed: %d", time.Since(start))
+		}
+	}()()
+
 	type TaskType = uint32
 	const (
 		_ TaskType = iota
