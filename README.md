@@ -2,7 +2,7 @@
 [![GoDoc](https://img.shields.io/static/v1?label=godoc&message=reference&color=blue "godoc")](https://pkg.go.dev/github.com/mlee-msl/taskgroup)  
 
 *golang*并发执行多任务(网络i/o、磁盘i/o、内存i/o等)，并聚合收集多任务执行结果与执行状态（如<u>任务组执行失败</u>，将返回首个<u>必要成功</u>任务的错误信息, 且会立即停止后续任务的运行）。
-**[`Quick Start`](https://pkg.go.dev/github.com/mlee-msl/taskgroup "欢迎使用，任何意见或建议可联系`2210508401@qq.com`")** & **[`Best Practice`](https://github.com/mlee-msl/taskgroup/blob/4d839742560e900530a3bc01f28f4dae326a15b6/taskgroup_example_test.go#L14)**
+**[`Quick Start`](https://pkg.go.dev/github.com/mlee-msl/taskgroup "欢迎使用，任何意见或建议可联系`2210508401@qq.com`")** & **[`Best Practice`](https://github.com/mlee-msl/taskgroup/blob/d92c0b0ca072c94be86e7147338d77d3707fd0b5/taskgroup_example_test.go#L15)**
 
 > **使用:** go get github.com/mlee-msl/taskgroup
 
