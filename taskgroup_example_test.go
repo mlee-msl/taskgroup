@@ -12,10 +12,17 @@ import (
 
 // Typical 展示了典型的使用案例，包括，多任务创建、任务执行、结果收集，错误处理等
 func ExampleTaskGroup_typical() {
+	type TaskType = uint32
+	const (
+		_ TaskType = iota
+		task1
+		task2
+		task3
+	)
 	tasks := []*taskgroup.Task{
-		taskgroup.NewTask(1, task1ReturnFailWrapper(1, false), false),
-		taskgroup.NewTask(2, task2ReturnSuccessWrapper(2, false), true),
-		taskgroup.NewTask(3, task3ReturnFailWrapper(3, false), false),
+		taskgroup.NewTask(uint32(task1), task1ReturnFailWrapper(uint32(task1), false), false),
+		taskgroup.NewTask(uint32(task2), task2ReturnSuccessWrapper(uint32(task2), false), true),
+		taskgroup.NewTask(uint32(task3), task3ReturnFailWrapper(uint32(task3), false), false),
 	}
 
 	taskResults, err := taskgroup.NewTaskGroup(taskgroup.WithWorkerNums(uint32(len(tasks)))).AddTask(tasks...).Run()
